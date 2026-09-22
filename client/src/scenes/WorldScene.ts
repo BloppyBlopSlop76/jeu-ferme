@@ -156,7 +156,7 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.fadeIn(300);
 
     this.controls = createControls(this);
-    this.hud = new Hud(this, 'Ton terrain');
+    this.hud = new Hud(this, gameState.character.name ? `Ferme de ${gameState.character.name}` : 'Ton terrain');
     this.refreshHud();
 
     // Interface (sac, options) : une scène à part, toujours au-dessus.

@@ -42,6 +42,8 @@ export class BootScene extends Phaser.Scene {
 
     // Reprise de la partie sauvegardée sur cet appareil, s'il y en a une.
     SaveSystem.load();
+    // Pas encore de trait choisi (nouvelle partie, ou ancienne partie convertie) : écran de création d'abord.
+    if (gameState.character.trait === null) { this.scene.start('Create'); return; }
     this.scene.start(gameState.location === 'house' ? 'House' : 'World');
   }
 }

@@ -58,7 +58,8 @@ export class UIScene extends Phaser.Scene {
     gameState.location = 'world';
     this.scene.stop('House');
     this.scene.stop('World');
-    this.scene.launch('World');
-    this.scene.bringToTop('UI');
+    // Nouvelle partie = nouveau personnage : on repasse par l'écran de création (l'UI se relance après).
+    this.scene.stop('UI');
+    this.scene.start('Create');
   }
 }
