@@ -80,3 +80,75 @@ def coin():
 if __name__ == '__main__':
     shop(); shipping_box(); npc(); coin()
     print('écrit shop.png, shipping_box.png, npc_marchand.png, coin.png')
+
+
+# ---------------------------------------------------------------- phase 10 : village
+def museum():
+    """Vieux musée : la maison en pierre grise, toit d'ardoise, mousse, deux colonnes, enseigne."""
+    im = Image.open(os.path.join(ASSETS, 'house.png')).convert('RGBA')
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+            if y < 48:      # toit → ardoise bleu-gris
+                h, s, v = 0.58, min(0.35, s * 0.6), v * 0.85
+            else:           # murs → pierre grise chaude
+                h, s, v = 0.09, s * 0.25, min(1.0, v * 1.05)
+            r2, g2, b2 = colorsys.hsv_to_rgb(h, s, v)
+            px[x, y] = (int(r2 * 255), int(g2 * 255), int(b2 * 255), a)
+    d = ImageDraw.Draw(im)
+    # Mousse sur le toit et le bas des murs
+    import random
+    rnd = random.Random(7)
+    for _ in range(40):
+        x, y = rnd.randint(2, 77), rnd.choice([rnd.randint(4, 44), rnd.randint(66, 78)])
+        if px[x, y][3]:
+            px[x, y] = (110, 150, 80, 255)
+    # Colonnes de part et d'autre de la porte (porte au centre bas : x 32..47)
+    for cx in (22, 54):
+        d.rectangle((cx, 50, cx + 3, 78), fill=(226, 218, 200), outline=(120, 110, 96))
+        d.rectangle((cx - 1, 49, cx + 4, 51), fill=(200, 190, 170), outline=(120, 110, 96))
+    # Fronton + enseigne : un petit coquillage
+    d.rectangle((28, 54, 51, 63), fill=(247, 236, 220), outline=(74, 46, 36))
+    d.ellipse((35, 56, 44, 62), fill=(240, 200, 88), outline=(160, 120, 40))
+    d.line((39, 56, 39, 62), fill=(200, 150, 60)); d.line((36, 58, 43, 58), fill=(200, 150, 60))
+    im.save(os.path.join(ASSETS, 'museum.png'))
+
+
+def fountain():
+    """Fontaine de la place (32×32) : bassin de pierre rond, eau, petit jet."""
+    im = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse((1, 12, 30, 30), fill=(150, 146, 140), outline=(74, 46, 36))       # bassin
+    d.ellipse((4, 14, 27, 27), fill=(120, 190, 220), outline=(90, 120, 150))     # eau
+    d.ellipse((8, 17, 14, 20), fill=(190, 230, 245))                             # reflet
+    d.rectangle((13, 6, 18, 20), fill=(170, 166, 160), outline=(74, 46, 36))    # colonne centrale
+    d.ellipse((10, 3, 21, 9), fill=(150, 146, 140), outline=(74, 46, 36))        # vasque haute
+    d.line((15, 0, 15, 4), fill=(190, 230, 245)); d.point((14, 1), fill=(190, 230, 245)); d.point((16, 1), fill=(190, 230, 245))
+    im.save(os.path.join(ASSETS, 'fountain.png'))
+
+
+def npcs():
+    """PNJ du village (création originale, chibi.py) : conservateur et villageoise, 2 images de balancement."""
+    looks = {
+        'npc_conservateur': (chibi.SKINS['porcelaine'], 'calme', chibi.EYES['gris'], 'court', chibi.HAIRS['gris'], chibi.SHIRTS['violet']),
+        'npc_villageoise': (chibi.SKINS['caramel'], 'malicieux', chibi.EYES['noisette'], 'couettes', chibi.HAIRS['noir'], chibi.SHIRTS['jaune']),
+    }
+    for name, (skin, face, eye, style, hair, shirt) in looks.items():
+        sheet = Image.new('RGBA', (48 * 4, 48), (0, 0, 0, 0))
+        for f in range(4):
+            cell = chibi.compose('down', f if f in (0, 1) else 0, skin, face, eye, style, hair, shirt)
+            if name == 'npc_conservateur':   # petites lunettes rondes
+                dd = ImageDraw.Draw(cell)
+                for ex in (18, 26):
+                    dd.rectangle((ex, 21, ex + 4, 25), outline=(74, 46, 36))
+            sheet.alpha_composite(cell, (f * 48, 0))
+        sheet.save(os.path.join(ASSETS, f'{name}.png'))
+
+
+if __name__ == '__main__':
+    museum(); fountain(); npcs()
+    print('écrit museum.png, fountain.png, npc_conservateur.png, npc_villageoise.png')
