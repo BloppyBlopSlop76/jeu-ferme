@@ -11,7 +11,9 @@ export type PerkEffect =
   | { kind: 'energy_cost'; action: string; value: number } // coût en énergie d'une action, en moins
   | { kind: 'seeds_per_harvest'; value: number }     // agriculture : graines en plus par récolte
   | { kind: 'harvest_yield'; value: number }         // agriculture : récolte en plus
-  | { kind: 'double_catch_chance'; value: number };  // pêche : chance (0..1) de prendre 2 poissons
+  | { kind: 'double_catch_chance'; value: number }   // pêche : chance (0..1) de prendre 2 poissons
+  | { kind: 'xp_bonus'; skill: SkillId; value: number } // XP en plus pour une compétence (0.25 = +25 %)
+  | { kind: 'extra_yield_chance'; value: number };   // agriculture : chance (0..1) d'un légume en plus
 
 export interface PerkDef {
   level: number;
