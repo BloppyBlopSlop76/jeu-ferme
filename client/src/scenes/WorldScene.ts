@@ -8,9 +8,12 @@ import { FarmView } from '../entities/FarmView';
 import { createControls } from '../systems/createControls';
 import { InputController } from '../systems/InputController';
 import { FarmSystem, ACTION_LABELS } from '../systems/FarmSystem';
-import { CROPS } from '../data/crops';
+import { ITEMS } from '../data/items';
 import { Hud } from '../ui/Hud';
 import { gameState } from '../state/GameState';
+import { SaveSystem } from '../systems/SaveSystem';
+import { Inventory } from '../systems/InventorySystem';
+import { uiState } from '../ui/uiState';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -133,12 +136,26 @@ export class WorldScene extends Phaser.Scene {
 
     this.controls = createControls(this);
     this.hud = new Hud(this, 'Ton terrain');
-    this.refreshHarvestHud();
+    this.refreshHud();
+
+    // Interface (sac, options) : une scène à part, toujours au-dessus.
+    if (!this.scene.isActive('UI')) this.scene.launch('UI');
+    this.scene.bringToTop('UI');
   }
 
   update(): void {
     if (this.entering) return;
+
+    // Panneau ouvert : le joueur reste immobile et rien ne se déclenche.
+    if (uiState.panelOpen) {
+      this.player.move({ x: 0, y: 0 });
+      return;
+    }
     this.player.move(this.controls.getDirection());
+    // Position mémorisée en continu (pour la sauvegarde).
+    gameState.player.x = this.player.x;
+    gameState.player.y = this.player.y;
+    gameState.player.facing = this.player.direction;
 
     // Pousse des plantes d'après l'heure réelle (branché sur les journées du jeu en phase 6).
     for (const plot of this.farm.tick()) this.farmView.refresh(plot);
@@ -146,11 +163,11 @@ export class WorldScene extends Phaser.Scene {
     // Case visée = la tuile devant les pieds du joueur.
     const { tx, ty } = this.targetTile();
     const action = this.farm.getAction(tx, ty);
-    const label = action ? ACTION_LABELS[action] : '';
-    this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(!!action || !!this.farm.getPlot(tx, ty));
+    const label = action ? ACTION_LABELS[action] : (this.farm.getBlockReason(tx, ty) ?? '');
+    this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(!!label || !!this.farm.getPlot(tx, ty));
     this.cursor.setStrokeStyle(1, action ? 0xfff2a0 : 0xffffff, action ? 1 : 0.5);
-    this.cursorLabel.setPosition(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 2).setText(label).setVisible(!!action);
-    this.controls.setActionLabel(label);
+    this.cursorLabel.setPosition(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 2).setText(label).setVisible(!!label);
+    this.controls.setActionLabel(action ? label : '');
 
     if (this.controls.actionJustPressed() && action) {
       const result = this.farm.act(tx, ty);
@@ -158,9 +175,13 @@ export class WorldScene extends Phaser.Scene {
       if (result.plot) this.farmView.refresh(result.plot);
       if (result.action === 'harvest') {
         this.farmView.clear(tx, ty);
-        this.refreshHarvestHud();
-        if (result.gained) this.floatText(`+${result.gained.qty} ${CROPS[result.gained.crop].nom}`, tx, ty);
+        if (result.gained) {
+          this.floatText(result.gained.map((g) => `+${g.qty} ${ITEMS[g.item].nom}`).join('  '), tx, ty);
+        }
       }
+      this.refreshHud();
+      this.game.events.emit('inventory-changed');
+      SaveSystem.autosave();
     }
   }
 
@@ -175,9 +196,8 @@ export class WorldScene extends Phaser.Scene {
     };
   }
 
-  private refreshHarvestHud(): void {
-    const parts = Object.entries(gameState.harvest).map(([id, qty]) => `${CROPS[id].nom} ×${qty}`);
-    this.hud.setInfo(parts.length ? parts.join('  ') : 'Poche vide');
+  private refreshHud(): void {
+    this.hud.setInfo(`Graines ×${Inventory.count('graine_navet')}   Navets ×${Inventory.count('navet')}`);
   }
 
   /** Petit texte qui monte et disparaît (retour visuel d'une récolte). */
@@ -194,6 +214,7 @@ export class WorldScene extends Phaser.Scene {
     this.entering = true;
     gameState.player = { x: this.player.x, y: this.player.y + 10, facing: 'down' };
     gameState.location = 'house';
+    SaveSystem.autosave();
     this.cameras.main.fadeOut(250);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('House'));
   }

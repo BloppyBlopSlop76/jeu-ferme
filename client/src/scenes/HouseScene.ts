@@ -8,6 +8,8 @@ import { createControls } from '../systems/createControls';
 import { InputController } from '../systems/InputController';
 import { Hud } from '../ui/Hud';
 import { gameState } from '../state/GameState';
+import { SaveSystem } from '../systems/SaveSystem';
+import { uiState } from '../ui/uiState';
 
 const ROOM_W = 12 * TILE_SIZE;  // 192 px
 const ROOM_H = 8 * TILE_SIZE;   // 128 px
@@ -52,17 +54,20 @@ export class HouseScene extends Phaser.Scene {
     this.cameras.main.fadeIn(300);
     this.controls = createControls(this);
     new Hud(this, 'Ta maison — sors par le bas');
+    if (!this.scene.isActive('UI')) this.scene.launch('UI');
+    this.scene.bringToTop('UI');
   }
 
   update(): void {
     if (this.leaving) return;
-    this.player.move(this.controls.getDirection());
+    this.player.move(uiState.panelOpen ? { x: 0, y: 0 } : this.controls.getDirection());
   }
 
   private leave(): void {
     if (this.leaving) return;
     this.leaving = true;
     gameState.location = 'world';
+    SaveSystem.autosave();
     this.cameras.main.fadeOut(250);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('World'));
   }

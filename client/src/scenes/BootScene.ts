@@ -4,6 +4,8 @@
 
 import Phaser from 'phaser';
 import { ASSETS_URL, GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
+import { SaveSystem } from '../systems/SaveSystem';
+import { gameState } from '../state/GameState';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -37,6 +39,8 @@ export class BootScene extends Phaser.Scene {
     // Bande de mur plein (pour l'intérieur de la maison).
     this.textures.get('walls').add('wall_plain', 0, 16, 32, 16, 16);
 
-    this.scene.start('World');
+    // Reprise de la partie sauvegardée sur cet appareil, s'il y en a une.
+    SaveSystem.load();
+    this.scene.start(gameState.location === 'house' ? 'House' : 'World');
   }
 }
