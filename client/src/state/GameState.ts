@@ -70,7 +70,7 @@ export function createDefaultState(): GameState {
   const slots: (ItemStack | null)[] = new Array(INVENTORY_SIZE).fill(null);
   slots[0] = { item: 'graine_navet', qty: 10 }; // de quoi commencer
   return {
-    version: 2,
+    version: 3,
     location: 'world',
     player: { x: 0, y: 0, facing: 'down' },
     farm: {},
