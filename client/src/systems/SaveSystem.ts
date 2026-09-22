@@ -31,6 +31,8 @@ function migrate(saved: Partial<GameState> & { version?: number }): Partial<Game
   if (v === 5) { (s.character as Record<string, unknown>).appearance = null; v = 6; }
   // v6 → v7 : économie (pièces, boîtes d'expédition, lit, graine choisie). Tout le monde part avec 50 pièces.
   if (v === 6) { s.money = 50; s.shipping = []; s.house = { bed: null }; s.selectedSeed = 'graine_navet'; v = 7; }
+  // v7 → v8 : le musée et la collection (vide au départ).
+  if (v === 7) { s.collection = []; v = 8; }
   // Quelle que soit la version de départ, on retire les champs de plante qui n'existent plus.
   for (const plot of Object.values((s.farm ?? {}) as Record<string, Record<string, unknown>>)) { delete plot.wateredAt; delete plot.progress; if (typeof plot.nights !== 'number') plot.nights = 0; }
   s.version = v;

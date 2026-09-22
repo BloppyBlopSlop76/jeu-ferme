@@ -3,6 +3,7 @@
 // Le serveur (phase 13) pourra rejouer exactement ces états pour valider une capture.
 
 import { pickFish, type FishDef } from '../data/fish';
+import { gameState } from '../state/GameState';
 import { Inventory } from './InventorySystem';
 import { Energy } from './EnergySystem';
 import { Skills } from './SkillSystem';
@@ -17,7 +18,7 @@ export class FishingSystem {
 
   /** Lance la ligne. `now` en ms (Date.now()). */
   cast(now: number): void {
-    this.fish = pickFish();
+    this.fish = pickFish(gameState.time.minute / 60);
     const [min, max] = this.fish.waitSeconds;
     // Bonus de compétence : le poisson mord plus vite (jamais moins d'une seconde d'attente).
     const faster = Skills.bonus('wait_seconds');
