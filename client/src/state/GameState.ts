@@ -17,9 +17,10 @@ export interface PlotState {
   crop: string | null;
   /** Stade de pousse courant (0 = graine, dernier = mûr). */
   stage: number;
+  /** Arrosée ? Une plante arrosée gagne un stade à chaque nuit passée. */
   watered: boolean;
-  /** Heure de l'arrosage (ms, Date.now()) ou null ; la pousse se calcule sur le temps réel écoulé. */
-  wateredAt: number | null;
+  /** Nuits passées depuis le dernier changement de stade. */
+  nights: number;
 }
 
 /** Une pile d'objets dans une case d'inventaire. */
@@ -37,6 +38,16 @@ export interface SettingsState {
   autosave: boolean;
 }
 
+/** Horloge du jeu. La journée commence à 6 h ; le jour change à minuit. */
+export interface TimeState {
+  /** Numéro du jour (1 = premier jour). */
+  day: number;
+  /** Minute de la journée, 0..1439 (360 = 6 h 00). */
+  minute: number;
+  /** Heure réelle (Date.now()) du dernier avancement : l'horloge rattrape le temps passé en pause. */
+  lastRealMs: number;
+}
+
 export interface GameState {
   /** Version du format de sauvegarde : à augmenter quand la structure change. */
   version: number;
@@ -45,21 +56,28 @@ export interface GameState {
   farm: Record<string, PlotState>;
   inventory: InventoryState;
   settings: SettingsState;
+  time: TimeState;
+  /** Énergie, de 0 à ENERGY_MAX. Jamais bloquante : à 0 on marche plus lentement, c'est tout. */
+  energy: number;
 }
 
 export const INVENTORY_SIZE = 20;
+export const ENERGY_MAX = 100;
+export const DAY_START_MINUTE = 6 * 60;
 
 /** L'état d'une nouvelle partie. */
 export function createDefaultState(): GameState {
   const slots: (ItemStack | null)[] = new Array(INVENTORY_SIZE).fill(null);
   slots[0] = { item: 'graine_navet', qty: 10 }; // de quoi commencer
   return {
-    version: 1,
+    version: 2,
     location: 'world',
     player: { x: 0, y: 0, facing: 'down' },
     farm: {},
     inventory: { slots },
     settings: { autosave: true },
+    time: { day: 1, minute: DAY_START_MINUTE, lastRealMs: 0 },
+    energy: ENERGY_MAX,
   };
 }
 
