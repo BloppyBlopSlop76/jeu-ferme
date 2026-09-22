@@ -1,0 +1,48 @@
+{
+ "skins": {
+  "porcelaine": "#ffe2cc",
+  "peche": "#f5ccac",
+  "dore": "#deb084",
+  "caramel": "#b8825c",
+  "cacao": "#80543a"
+ },
+ "hairColors": {
+  "chatain": "#805434",
+  "blond": "#f0cc6e",
+  "roux": "#d86c34",
+  "noir": "#362e3a",
+  "gris": "#b0b0b8",
+  "bleu": "#5c84d2",
+  "rose": "#e882aa",
+  "vert": "#5caa78"
+ },
+ "shirts": {
+  "vert": "#6eb260",
+  "rouge": "#de6054",
+  "bleu": "#6090d8",
+  "jaune": "#f0c858",
+  "violet": "#a070c8",
+  "blanc": "#f0ece4",
+  "orange": "#f09646"
+ },
+ "eyes": {
+  "noisette": "#8c5c34",
+  "vert": "#5c965a",
+  "bleu": "#5282c8",
+  "ambre": "#d0963c",
+  "gris": "#78808c",
+  "violet": "#9664b4"
+ },
+ "faces": [
+  "doux",
+  "malicieux",
+  "etoile",
+  "calme"
+ ],
+ "hairStyles": [
+  "court",
+  "long",
+  "couettes",
+  "boucle"
+ ]
+}
