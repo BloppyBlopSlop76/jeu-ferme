@@ -20,6 +20,10 @@ export const ITEMS: Record<string, ItemDef> = {
   navet: { id: 'navet', nom: 'Navet', kind: 'crop', icon: { texture: 'plants', frame: 11 }, stackMax: 99 },
   graine_ble: { id: 'graine_ble', nom: 'Graine de blé', kind: 'seed', icon: { texture: 'plants', frame: 0 }, stackMax: 99, crop: 'ble' },
   ble: { id: 'ble', nom: 'Blé', kind: 'crop', icon: { texture: 'plants', frame: 5 }, stackMax: 99 },
+  graine_carotte: { id: 'graine_carotte', nom: 'Graine de carotte', kind: 'seed', icon: { texture: 'plants', frame: 12 }, stackMax: 99, crop: 'carotte' },
+  carotte: { id: 'carotte', nom: 'Carotte', kind: 'crop', icon: { texture: 'plants', frame: 17 }, stackMax: 99 },
   sardine: { id: 'sardine', nom: 'Sardine', kind: 'fish', icon: { texture: 'fish', frame: 0 }, stackMax: 99 },
+  truite: { id: 'truite', nom: 'Truite', kind: 'fish', icon: { texture: 'fish', frame: 1 }, stackMax: 99 },
+  carpe: { id: 'carpe', nom: 'Carpe', kind: 'fish', icon: { texture: 'fish', frame: 2 }, stackMax: 99 },
   lit: { id: 'lit', nom: 'Lit', kind: 'furniture', icon: { texture: 'furniture', frame: 'bed_icon' }, stackMax: 1 },
 };

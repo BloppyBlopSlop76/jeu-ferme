@@ -6,8 +6,8 @@ export interface NpcDef {
   nom: string;
   /** Feuille d'images (4 cases 48×48, balancement sur les 2 premières). */
   texture: string;
-  /** Ce que fait « Parler » : ouvrir la boutique, ou dire des phrases. */
-  role: 'shop' | 'talk';
+  /** Ce que fait « Parler » : ouvrir la boutique, ouvrir le musée (si le sac contient une pièce à exposer, sinon parler), ou dire des phrases. */
+  role: 'shop' | 'museum' | 'talk';
   /** Phrases dites l'une après l'autre (tap / E pour passer). */
   lines: string[];
 }
@@ -15,11 +15,11 @@ export interface NpcDef {
 export const NPCS: Record<string, NpcDef> = {
   marchand: { id: 'marchand', nom: 'Le marchand', texture: 'npc_marchand', role: 'shop', lines: [] },
   conservateur: {
-    id: 'conservateur', nom: 'Le conservateur', texture: 'npc_conservateur', role: 'talk',
+    id: 'conservateur', nom: 'Le conservateur', texture: 'npc_conservateur', role: 'museum',
     lines: [
       'Bienvenue au vieux musée du bourg… enfin, ce qu\'il en reste.',
       'Les vitrines sont vides depuis des années. Si tu rapportes des légumes ou des poissons rares, je saurai les exposer.',
-      'Reviens quand tu auras trouvé quelque chose !',
+      'Reviens quand tu auras trouvé quelque chose de nouveau !',
     ],
   },
   villageoise: {

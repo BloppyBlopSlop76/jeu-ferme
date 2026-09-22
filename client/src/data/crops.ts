@@ -18,6 +18,7 @@ export interface CropDef {
 export const CROPS: Record<string, CropDef> = {
   navet: { id: 'navet', nom: 'Navet', row: 1, stages: 4, growthNights: 2, yield: 1 },  // mûr en 2 nuits
   ble: { id: 'ble', nom: 'Blé', row: 0, stages: 4, growthNights: 5, yield: 2 },        // mûr en 5 nuits
+  carotte: { id: 'carotte', nom: 'Carotte', row: 2, stages: 4, growthNights: 3, yield: 1 },  // mûre en 3 nuits (phase 9)
 };
 
 /** Numéro d'image dans plants.png pour un stade donné (0 = premier stade). */
