@@ -24,7 +24,7 @@ export class UIScene extends Phaser.Scene {
     // Teinte de nuit : un voile bleu nuit sur tout l'écran, sous les panneaux, dont l'opacité suit l'heure.
     this.nightTint = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x0b1a3a, 1).setOrigin(0, 0).setDepth(100).setAlpha(0);
     this.clock = new ClockWidget(this);
-    this.panel = new InventoryPanel(this, () => this.resetGame());
+    this.panel = new InventoryPanel(this, () => this.resetGame(), () => this.openAppearance());
 
     // Bouton « Sac » en haut à droite (souris et tactile).
     const bx = GAME_WIDTH - 22, by = 30;
@@ -53,6 +53,15 @@ export class UIScene extends Phaser.Scene {
   }
 
   /** Nouvelle partie : efface la sauvegarde, remet l'état à zéro et relance le terrain. */
+  /** Options → « Changer d'apparence » : on quitte le jeu pour l'écran d'apparence, qui relance la bonne scène. */
+  private openAppearance(): void {
+    SaveSystem.save();
+    this.scene.stop('House');
+    this.scene.stop('World');
+    this.scene.stop('UI');
+    this.scene.start('Appearance');
+  }
+
   private resetGame(): void {
     SaveSystem.reset();
     gameState.location = 'world';

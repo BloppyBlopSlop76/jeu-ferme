@@ -94,10 +94,12 @@ export class CreateScene extends Phaser.Scene {
   private confirm(): void {
     if (!this.selected) return;
     const name = this.nameInput.value.trim().slice(0, 14) || DEFAULT_NAME;
-    gameState.character = { name, trait: this.selected };
+    gameState.character = { ...gameState.character, name, trait: this.selected };
     SaveSystem.save();
     this.nameInput.blur();
-    this.scene.start(gameState.location === 'house' ? 'House' : 'World');
+    // Étape suivante : l'apparence (si elle n'a jamais été choisie), sinon le jeu.
+    if (gameState.character.appearance === null) this.scene.start('Appearance');
+    else this.scene.start(gameState.location === 'house' ? 'House' : 'World');
   }
 }
 

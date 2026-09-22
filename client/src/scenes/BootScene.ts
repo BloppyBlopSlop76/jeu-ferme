@@ -6,6 +6,7 @@ import Phaser from 'phaser';
 import { ASSETS_URL, GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
 import { SaveSystem } from '../systems/SaveSystem';
 import { gameState } from '../state/GameState';
+import { allAppearanceTextures } from '../data/appearance';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -28,7 +29,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image('dirt', 'dirt.png');
     this.load.spritesheet('plants', 'plants.png', { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('fish', 'fish.png', { frameWidth: 16, frameHeight: 16 });
-    this.load.spritesheet('character', 'character.png', { frameWidth: 48, frameHeight: 48 });
+    // Personnage en couches (création originale, générée par tools/chibi.py).
+    for (const key of allAppearanceTextures()) this.load.spritesheet(key, `chibi/${key}.png`, { frameWidth: 48, frameHeight: 48 });
     this.load.tilemapTiledJSON('ferme', 'maps/ferme.json');
   }
 
@@ -44,6 +46,7 @@ export class BootScene extends Phaser.Scene {
     SaveSystem.load();
     // Pas encore de trait choisi (nouvelle partie, ou ancienne partie convertie) : écran de création d'abord.
     if (gameState.character.trait === null) { this.scene.start('Create'); return; }
+    if (gameState.character.appearance === null) { this.scene.start('Appearance'); return; }
     this.scene.start(gameState.location === 'house' ? 'House' : 'World');
   }
 }
