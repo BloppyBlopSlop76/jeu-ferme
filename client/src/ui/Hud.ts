@@ -11,7 +11,7 @@ export class Hud {
   constructor(scene: Phaser.Scene, hint: string) {
     const isTouch = scene.sys.game.device.input.touch;
     scene.add.text(4, 4, GAME_VERSION, STYLE).setScrollFactor(0).setDepth(10000);
-    scene.add.text(GAME_WIDTH / 2, 4, isTouch ? hint : `${hint} — flèches ou ZQSD`, STYLE)
+    scene.add.text(GAME_WIDTH / 2, 4, isTouch ? hint : `${hint} — flèches/ZQSD, E = action, I = sac`, STYLE)
       .setOrigin(0.5, 0).setScrollFactor(0).setDepth(10000);
     this.info = scene.add.text(GAME_WIDTH - 4, 4, '', STYLE)
       .setOrigin(1, 0).setScrollFactor(0).setDepth(10000);
