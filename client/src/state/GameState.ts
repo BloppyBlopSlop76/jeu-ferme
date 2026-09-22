@@ -89,6 +89,8 @@ export interface GameState {
   house: HouseState;
   /** Graine plantée par le bouton d'action (choisie dans le sac). */
   selectedSeed: string;
+  /** Objets exposés au musée (phase 9), identifiants d'objets, sans doublon. */
+  collection: string[];
 }
 
 export const INVENTORY_SIZE = 20;
@@ -100,7 +102,7 @@ export function createDefaultState(): GameState {
   const slots: (ItemStack | null)[] = new Array(INVENTORY_SIZE).fill(null);
   slots[0] = { item: 'graine_navet', qty: 10 }; // de quoi commencer
   return {
-    version: 7,
+    version: 8,
     location: 'world',
     player: { x: 0, y: 0, facing: 'down' },
     farm: {},
@@ -114,6 +116,7 @@ export function createDefaultState(): GameState {
     shipping: [],
     house: { bed: null },
     selectedSeed: 'graine_navet',
+    collection: [],
   };
 }
 
