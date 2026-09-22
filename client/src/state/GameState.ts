@@ -2,6 +2,8 @@
 // Tout ce qui décrit « où en est le joueur » vit ici. Les scènes lisent et écrivent cet état ;
 // c'est ce qui est sauvegardé (phase 5) et ce que le serveur contrôlera en phase 13.
 
+import type { Appearance } from '../data/appearance';
+
 export type LocationId = 'world' | 'house';
 
 export interface PlayerState {
@@ -57,6 +59,8 @@ export interface SkillState {
 export interface CharacterState {
   name: string;
   trait: string | null;
+  /** Apparence (phase 8) ; null tant qu'elle n'a pas été choisie → écran « Ton apparence ». */
+  appearance: Appearance | null;
 }
 
 export interface GameState {
@@ -84,7 +88,7 @@ export function createDefaultState(): GameState {
   const slots: (ItemStack | null)[] = new Array(INVENTORY_SIZE).fill(null);
   slots[0] = { item: 'graine_navet', qty: 10 }; // de quoi commencer
   return {
-    version: 5,
+    version: 6,
     location: 'world',
     player: { x: 0, y: 0, facing: 'down' },
     farm: {},
@@ -93,7 +97,7 @@ export function createDefaultState(): GameState {
     time: { day: 1, minute: 8 * 60, lastRealMs: 0 }, // une nouvelle partie commence à 8 h, en plein jour
     energy: ENERGY_MAX,
     skills: { agriculture: { xp: 0 }, peche: { xp: 0 } },
-    character: { name: '', trait: null },
+    character: { name: '', trait: null, appearance: null },
   };
 }
 
