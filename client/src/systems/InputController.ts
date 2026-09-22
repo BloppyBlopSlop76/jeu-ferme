@@ -1,21 +1,25 @@
-// Réunit toutes les sources d'entrée (flèches, ZQSD, WASD, joystick tactile) en une seule
-// direction (dx, dy) entre -1 et 1. Le reste du jeu ne sait pas d'où vient l'ordre de bouger.
+// Réunit toutes les sources d'entrée (flèches, ZQSD, WASD, joystick tactile, touche/bouton d'action)
+// en une seule direction (dx, dy) entre -1 et 1 et un signal « action ».
+// Le reste du jeu ne sait pas d'où vient l'ordre.
 
 import Phaser from 'phaser';
 import { VirtualJoystick } from '../ui/VirtualJoystick';
+import { ActionButton } from '../ui/ActionButton';
 
 export class InputController {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys | undefined;
-  private keys: Record<'Z' | 'Q' | 'S' | 'D' | 'W' | 'A', Phaser.Input.Keyboard.Key> | undefined;
+  private keys: Record<'Z' | 'Q' | 'S' | 'D' | 'W' | 'A' | 'E' | 'SPACE', Phaser.Input.Keyboard.Key> | undefined;
   private joystick: VirtualJoystick | null;
+  private button: ActionButton | null;
 
-  constructor(scene: Phaser.Scene, joystick: VirtualJoystick | null) {
+  constructor(scene: Phaser.Scene, joystick: VirtualJoystick | null, button: ActionButton | null) {
     this.joystick = joystick;
+    this.button = button;
     const keyboard = scene.input.keyboard;
     if (keyboard) {
       this.cursors = keyboard.createCursorKeys();
-      // ZQSD pour les claviers français (AZERTY), WASD pour les claviers QWERTY.
-      this.keys = keyboard.addKeys('Z,Q,S,D,W,A') as InputController['keys'];
+      // ZQSD pour les claviers français (AZERTY), WASD pour les claviers QWERTY. E ou Espace = action.
+      this.keys = keyboard.addKeys('Z,Q,S,D,W,A,E,SPACE') as InputController['keys'];
     }
   }
 
@@ -45,5 +49,20 @@ export class InputController {
       y /= len;
     }
     return { x, y };
+  }
+
+  /** Vrai une seule fois par appui sur E / Espace / le bouton tactile. */
+  actionJustPressed(): boolean {
+    let pressed = false;
+    if (this.keys) {
+      pressed = Phaser.Input.Keyboard.JustDown(this.keys.E) || Phaser.Input.Keyboard.JustDown(this.keys.SPACE);
+    }
+    if (this.button?.consume()) pressed = true;
+    return pressed;
+  }
+
+  /** Affiche sur le bouton tactile ce que l'action ferait (sans effet sur clavier). */
+  setActionLabel(text: string): void {
+    this.button?.setLabel(text);
   }
 }
