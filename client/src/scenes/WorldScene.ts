@@ -17,6 +17,7 @@ import { uiState } from '../ui/uiState';
 import { DayCycle } from '../systems/DayCycle';
 import { Energy } from '../systems/EnergySystem';
 import { FishingSystem } from '../systems/FishingSystem';
+import { SKILLS } from '../data/skills';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -227,10 +228,17 @@ export class WorldScene extends Phaser.Scene {
           this.floatText(result.gained.map((g) => `+${g.qty} ${ITEMS[g.item].nom}`).join('  '), tx, ty);
         }
       }
+      if (result.levelUp) this.levelUpText('agriculture', result.levelUp);
       this.refreshHud();
       this.game.events.emit('inventory-changed');
       SaveSystem.autosave();
     }
+  }
+
+  /** Annonce un nouveau niveau au-dessus du joueur. */
+  private levelUpText(skill: keyof typeof SKILLS, level: number): void {
+    const tx = Math.floor(this.player.x / TILE_SIZE), ty = Math.floor(this.player.y / TILE_SIZE) - 3;
+    this.floatText(`${SKILLS[skill].nom} niveau ${level} !`, tx, ty);
   }
 
   /** Pendant la pêche : attente, touche, capture ou raté. */
@@ -258,7 +266,9 @@ export class WorldScene extends Phaser.Scene {
         this.biteMark.setVisible(false);
         this.showRod(false);
         if (result) {
-          this.floatText(result.stored ? `+1 ${result.fish.nom}` : 'Sac plein !', Math.floor(px / TILE_SIZE), Math.floor(py / TILE_SIZE));
+          this.floatText(result.stored ? `+${result.qty} ${result.fish.nom}` : 'Sac plein !', Math.floor(px / TILE_SIZE), Math.floor(py / TILE_SIZE));
+          if (result.levelUp) this.levelUpText('peche', result.levelUp);
+          this.refreshHud();
           this.game.events.emit('inventory-changed');
           SaveSystem.autosave();
         }
