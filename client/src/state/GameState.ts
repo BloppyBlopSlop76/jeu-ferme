@@ -76,7 +76,7 @@ export function createDefaultState(): GameState {
     farm: {},
     inventory: { slots },
     settings: { autosave: true },
-    time: { day: 1, minute: DAY_START_MINUTE, lastRealMs: 0 },
+    time: { day: 1, minute: 8 * 60, lastRealMs: 0 }, // une nouvelle partie commence à 8 h, en plein jour
     energy: ENERGY_MAX,
   };
 }
