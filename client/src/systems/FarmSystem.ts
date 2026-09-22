@@ -81,7 +81,8 @@ export class FarmSystem {
       if (plot.progress >= crop.stageMs) {
         plot.stage += 1;
         plot.progress = 0;
-        plot.watered = false; // chaque stade demande un nouvel arrosage
+        // Un seul arrosage suffit pour toute la pousse (planter → arroser → attendre → récolter).
+        // L'arrosage quotidien reviendra éventuellement avec les journées, en phase 6.
         changed.push(plot);
       }
     }
