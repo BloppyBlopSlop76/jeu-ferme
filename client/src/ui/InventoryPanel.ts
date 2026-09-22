@@ -1,4 +1,4 @@
-// Panneau « Sac / Options » : grille d'inventaire et réglages (sauvegarde, nouvelle partie).
+// Panneau « Sac / Talents / Options / Commandes » : inventaire, compétences, réglages, raccourcis.
 // Vit dans la scène UI (caméra fixe), au-dessus du jeu.
 
 import Phaser from 'phaser';
@@ -6,6 +6,8 @@ import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
 import { ITEMS } from '../data/items';
 import { gameState, INVENTORY_SIZE } from '../state/GameState';
 import { SaveSystem } from '../systems/SaveSystem';
+import { Skills } from '../systems/SkillSystem';
+import { SKILLS, MAX_LEVEL, type SkillId } from '../data/skills';
 import { uiState } from './uiState';
 
 const PANEL_W = 300;
@@ -15,7 +17,7 @@ const CELL = 34;
 const FONT = { fontFamily: 'sans-serif', fontSize: '10px', color: '#2b2118' } as const;
 const FONT_SMALL = { fontFamily: 'sans-serif', fontSize: '9px', color: '#2b2118' } as const;
 
-type Tab = 'sac' | 'options' | 'commandes';
+type Tab = 'sac' | 'talents' | 'options' | 'commandes';
 
 export class InventoryPanel {
   private root: Phaser.GameObjects.Container;
@@ -25,6 +27,9 @@ export class InventoryPanel {
   private tabOptions!: Phaser.GameObjects.Rectangle;
   private tabCommandes!: Phaser.GameObjects.Rectangle;
   private commandesPage!: Phaser.GameObjects.Container;
+  private tabTalents!: Phaser.GameObjects.Rectangle;
+  private talentsPage!: Phaser.GameObjects.Container;
+  private talentRows: Record<string, { level: Phaser.GameObjects.Text; bar: Phaser.GameObjects.Rectangle; xp: Phaser.GameObjects.Text; next: Phaser.GameObjects.Text }> = {};
   private cells: { icon: Phaser.GameObjects.Image; qty: Phaser.GameObjects.Text }[] = [];
   private selectedLabel!: Phaser.GameObjects.Text;
   private autosaveLabel!: Phaser.GameObjects.Text;
@@ -44,16 +49,19 @@ export class InventoryPanel {
 
     // Onglets.
     this.tabSac = this.makeTab(8, -12, 'Sac', () => this.showTab('sac'));
-    this.tabOptions = this.makeTab(70, -12, 'Options', () => this.showTab('options'));
-    this.tabCommandes = this.makeTab(132, -12, 'Commandes', () => this.showTab('commandes'));
+    this.tabTalents = this.makeTab(62, -12, 'Talents', () => this.showTab('talents'));
+    this.tabOptions = this.makeTab(122, -12, 'Options', () => this.showTab('options'));
+    this.tabCommandes = this.makeTab(182, -12, 'Commandes', () => this.showTab('commandes'));
     // Bouton fermer.
     this.makeButton(PANEL_W - 30, 6, 24, 16, '✕', () => this.close());
 
     this.sacPage = scene.add.container(0, 0);
     this.optionsPage = scene.add.container(0, 0).setVisible(false);
     this.commandesPage = scene.add.container(0, 0).setVisible(false);
-    this.root.add([this.sacPage, this.optionsPage, this.commandesPage]);
+    this.talentsPage = scene.add.container(0, 0).setVisible(false);
+    this.root.add([this.sacPage, this.optionsPage, this.commandesPage, this.talentsPage]);
     this.buildSac();
+    this.buildTalents();
     this.buildOptions();
     this.buildCommandes();
 
@@ -64,7 +72,7 @@ export class InventoryPanel {
   // ---------- Construction ----------
 
   private makeTab(x: number, y: number, label: string, onClick: () => void): Phaser.GameObjects.Rectangle {
-    const w = label.length > 7 ? 72 : 56;
+    const w = label.length > 7 ? 68 : 52;
     const r = this.scene.add.rectangle(x, y, w, 16, 0xd9c49a, 1).setOrigin(0, 0).setStrokeStyle(1, 0x6b4a2b).setInteractive();
     const t = this.scene.add.text(x + w / 2, y + 8, label, FONT).setOrigin(0.5);
     r.on('pointerdown', onClick);
@@ -103,6 +111,40 @@ export class InventoryPanel {
     this.sacPage.add(this.selectedLabel);
   }
 
+  private buildTalents(): void {
+    const p = this.talentsPage;
+    let y = 34;
+    for (const id of Object.keys(SKILLS) as SkillId[]) {
+      const def = SKILLS[id];
+      const name = this.scene.add.text(30, y, def.nom, { ...FONT, fontStyle: 'bold' });
+      const level = this.scene.add.text(PANEL_W - 30, y, '', FONT).setOrigin(1, 0);
+      // Barre de progression vers le niveau suivant.
+      const barBg = this.scene.add.rectangle(30, y + 16, PANEL_W - 60, 6, 0xc9b68f, 1).setOrigin(0, 0).setStrokeStyle(1, 0x9c7b52);
+      const bar = this.scene.add.rectangle(31, y + 17, 0, 4, 0x6fae4a, 1).setOrigin(0, 0);
+      const xp = this.scene.add.text(PANEL_W - 30, y + 25, '', { ...FONT_SMALL, color: '#6b5a48' }).setOrigin(1, 0);
+      const next = this.scene.add.text(30, y + 25, '', { ...FONT_SMALL, color: '#6b5a48' });
+      p.add([name, level, barBg, bar, xp, next]);
+      this.talentRows[id] = { level, bar, xp, next };
+      y += 52;
+    }
+    const note = this.scene.add.text(PANEL_W / 2, y + 2,
+      'Planter, arroser, récolter et pêcher font progresser tes talents.', { ...FONT_SMALL, color: '#6b5a48' }).setOrigin(0.5, 0);
+    p.add(note);
+  }
+
+  private refreshTalents(): void {
+    for (const id of Object.keys(SKILLS) as SkillId[]) {
+      const row = this.talentRows[id];
+      const prog = Skills.progress(id);
+      row.level.setText(`Niveau ${prog.level}${prog.level >= MAX_LEVEL ? ' (max)' : ''}`);
+      const fraction = prog.to === null ? 1 : (prog.xp - prog.from) / (prog.to - prog.from);
+      row.bar.width = Math.round((PANEL_W - 62) * Math.min(1, Math.max(0, fraction)));
+      row.xp.setText(prog.to === null ? `${prog.xp} XP` : `${prog.xp} / ${prog.to} XP`);
+      const nextPerk = Skills.nextPerk(id);
+      row.next.setText(nextPerk ? `Niveau ${nextPerk.level} : ${nextPerk.texte}` : 'Tous les bonus sont débloqués');
+    }
+  }
+
   private buildOptions(): void {
     const p = this.optionsPage;
     let y = 36;
@@ -138,14 +180,14 @@ export class InventoryPanel {
     const lines = isTouch
       ? [
           ['Joystick (bas gauche)', 'se déplacer'],
-          ['Bouton rond (bas droite)', 'action : planter, arroser, récolter, dormir'],
+          ['Bouton rond (bas droite)', 'action : planter, arroser, récolter, pêcher, dormir'],
           ['Bouton Sac (haut droite)', 'ouvrir / fermer ce menu'],
           ['Marcher sur la porte', 'entrer dans la maison'],
           ['Marcher sur le paillasson', 'sortir de la maison'],
         ]
       : [
           ['Flèches ou Z Q S D', 'se déplacer'],
-          ['E ou Espace', 'action : planter, arroser, récolter, dormir'],
+          ['E ou Espace', 'action : planter, arroser, récolter, pêcher, dormir'],
           ['I', 'ouvrir / fermer ce menu'],
           ['Échap', 'fermer ce menu'],
           ['Marcher sur la porte', 'entrer dans la maison'],
@@ -164,14 +206,17 @@ export class InventoryPanel {
 
   private showTab(tab: Tab): void {
     this.sacPage.setVisible(tab === 'sac');
+    this.talentsPage.setVisible(tab === 'talents');
     this.optionsPage.setVisible(tab === 'options');
     this.commandesPage.setVisible(tab === 'commandes');
     this.tabSac.setFillStyle(tab === 'sac' ? 0xf3e4c4 : 0xd9c49a);
+    this.tabTalents.setFillStyle(tab === 'talents' ? 0xf3e4c4 : 0xd9c49a);
     this.tabOptions.setFillStyle(tab === 'options' ? 0xf3e4c4 : 0xd9c49a);
     this.tabCommandes.setFillStyle(tab === 'commandes' ? 0xf3e4c4 : 0xd9c49a);
     this.confirmReset = false;
     this.resetLabel?.setText('Nouvelle partie');
     if (tab === 'sac') this.refreshSac();
+    else if (tab === 'talents') this.refreshTalents();
     else if (tab === 'options') this.refreshOptions();
   }
 
