@@ -6,11 +6,13 @@ import { BootScene } from './scenes/BootScene';
 import { WorldScene } from './scenes/WorldScene';
 import { HouseScene } from './scenes/HouseScene';
 import { UIScene } from './scenes/UIScene';
+import { CreateScene } from './scenes/CreateScene';
 import { gameState } from './state/GameState';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,            // WebGL si disponible, sinon Canvas
   parent: 'game',               // id de la <div> dans index.html
+  dom: { createContainer: true }, // permet un vrai champ de saisie HTML (prénom) par-dessus le jeu
   backgroundColor: '#2f4f2f',
   pixelArt: true,               // pas de flou sur les sprites pixel art
   scale: {
@@ -23,7 +25,7 @@ const config: Phaser.Types.Core.GameConfig = {
     default: 'arcade',          // physique simple (vitesse, collisions rectangulaires), suffisante pour un jeu 2D vu de dessus
     arcade: { debug: false },
   },
-  scene: [BootScene, WorldScene, HouseScene, UIScene],
+  scene: [BootScene, CreateScene, WorldScene, HouseScene, UIScene],
 };
 
 new Phaser.Game(config);
