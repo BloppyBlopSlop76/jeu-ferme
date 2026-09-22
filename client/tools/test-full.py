@@ -1,4 +1,4 @@
-# Régression complète v0.9 : création → apparence → agriculture (navet + blé) → pêche → talents → boîte → boutique
+# Régression complète v0.11 : création → apparence → agriculture (navet + blé) → pêche → talents → boîte → boutique
 # → maison (paille, lit) → options (autosave, nouvelle partie) → anciennes sauvegardes v1/v3/v5 → tactile.
 import asyncio, subprocess, time, json
 from playwright.async_api import async_playwright
@@ -56,7 +56,7 @@ async def main():
             await click(page, 441, 84)  # visage ›
             await click(page, 330, 270 - 36, 1500)
             st = await state(page)
-            check('apparence : sauvée, jeu lancé', st['character']['appearance']['face'] == 'malicieux' and st['location'] == 'world' and st['money'] == 50 and st['version'] == 7)
+            check('apparence : sauvée, jeu lancé', st['character']['appearance']['face'] == 'malicieux' and st['location'] == 'world' and st['money'] == 50 and st['version'] == 8)
 
             # ---------- 2. Agriculture navet : planter, arroser, nuit, récolter (+2 graines +1 trait ? non : Main verte = arroser -1 énergie)
             await teleport(page, 200, 220, 'down')
@@ -99,7 +99,7 @@ async def main():
             st = await state(page)
             check('talents : niveau 2 franchi (xp ≥ 10)', st['skills']['agriculture']['xp'] >= 10)
             await press(page, 'i'); await page.wait_for_timeout(300)
-            await click(page, PX + 62 + 26, PY - 12 + 8)
+            await click(page, PX + 50 + 25, PY - 12 + 8)   # onglet Talents
             await page.screenshot(path=SHOT + 'talents.png')
             await press(page, 'Escape'); await page.wait_for_timeout(300)
 
@@ -122,8 +122,8 @@ async def main():
             await teleport(page, 46*16+8, 16*16+14, 'up')
             await press(page, 'ArrowUp', 30); await page.wait_for_timeout(300)
             await press(page, 'e'); await page.wait_for_timeout(500)
-            await click(page, PX + 236 + 17, PY + 58 + 9)   # blé ×5
-            await click(page, PX + 196 + 17, PY + 84 + 9)   # lit
+            await click(page, PX + 236 + 17, PY + 84 + 9)   # blé ×5 (3e ligne depuis v0.11 : navet, carotte, blé, lit)
+            await click(page, PX + 196 + 17, PY + 110 + 9)  # lit
             st = await state(page)
             check('boutique : achats blé ×5 + lit', st['money'] == 60 and any(s and s['item'] == 'lit' for s in st['inventory']['slots']) and any(s and s['item'] == 'graine_ble' and s['qty'] == 5 for s in st['inventory']['slots']), st['money'])
             await click(page, PX + 70 + 28, PY - 12 + 8)    # onglet Vendre
@@ -197,13 +197,13 @@ async def main():
 
             # ---------- 9. Options : autosave off/on, sauvegarder, nouvelle partie
             await press(page, 'i'); await page.wait_for_timeout(300)
-            await click(page, PX + 122 + 26, PY - 12 + 8)        # Options
+            await click(page, PX + 166 + 25, PY - 12 + 8)        # Options (onglets décalés par Collection en v0.11)
             await click(page, PX + 150, PY + 68 + 11)            # autosave off
             check('options : autosave désactivée', (await state(page))['settings']['autosave'] is False)
             await click(page, PX + 150, PY + 68 + 11)            # autosave on
             await click(page, PX + 150, PY + 36 + 11)            # sauvegarder
             saved = json.loads(await page.evaluate("() => localStorage.getItem('jeu-ferme.save')"))
-            check('options : sauvegarde écrite (v7, Tony)', saved['version'] == 7 and saved['character']['name'] == 'Tony')
+            check('options : sauvegarde écrite (v8, Tony)', saved['version'] == 8 and saved['character']['name'] == 'Tony')
             await click(page, PX + 150, PY + 132 + 11); await click(page, PX + 150, PY + 132 + 11, 1500)   # nouvelle partie ×2
             check('options : nouvelle partie → écran de création', await page.evaluate("() => document.querySelectorAll('input').length") == 1 and (await state(page))['time']['day'] == 1)
 
@@ -217,7 +217,7 @@ async def main():
                 await load_save(page, old)
                 st = await state(page)
                 inputs = await page.evaluate("() => document.querySelectorAll('input').length")
-                check(f'sauvegarde v{v} : convertie en v7, jour 6 gardé, écran de création', st['version'] == 7 and st['time']['day'] == 6 and st['money'] == 50 and (inputs == 1) == (st['character']['trait'] is None), (st['version'], st['time'], inputs))
+                check(f'sauvegarde v{v} : convertie en v8, jour 6 gardé, écran de création', st['version'] == 8 and st['collection'] == [] and st['time']['day'] == 6 and st['money'] == 50 and (inputs == 1) == (st['character']['trait'] is None), (st['version'], st['time'], inputs))
                 check(f'sauvegarde v{v} : plante gardée sans champs obsolètes', '12,12' in st['farm'] and 'wateredAt' not in st['farm']['12,12'])
 
             # ---------- 11. Tactile : joystick + bouton d'action sur un téléphone simulé
