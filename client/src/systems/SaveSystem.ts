@@ -27,6 +27,8 @@ function migrate(saved: Partial<GameState> & { version?: number }): Partial<Game
   if (v === 3) { s.skills = { agriculture: { xp: 0 }, peche: { xp: 0 } }; v = 4; }
   // v4 → v5 : prénom et trait de caractère. trait = null → l'écran de création s'affichera une fois, la partie est gardée.
   if (v === 4) { s.character = { name: '', trait: null }; v = 5; }
+  // v5 → v6 : apparence du personnage. null → l'écran « Ton apparence » s'affichera une fois, la partie est gardée.
+  if (v === 5) { (s.character as Record<string, unknown>).appearance = null; v = 6; }
   s.version = v;
   return s as Partial<GameState>;
 }
