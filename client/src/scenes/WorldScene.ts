@@ -136,12 +136,12 @@ export class WorldScene extends Phaser.Scene {
     this.refreshHarvestHud();
   }
 
-  update(_time: number, delta: number): void {
+  update(): void {
     if (this.entering) return;
     this.player.move(this.controls.getDirection());
 
-    // Pousse des plantes (temps réel pour l'instant ; branché sur les journées en phase 6).
-    for (const plot of this.farm.tick(delta)) this.farmView.refresh(plot);
+    // Pousse des plantes d'après l'heure réelle (branché sur les journées du jeu en phase 6).
+    for (const plot of this.farm.tick()) this.farmView.refresh(plot);
 
     // Case visée = la tuile devant les pieds du joueur.
     const { tx, ty } = this.targetTile();
