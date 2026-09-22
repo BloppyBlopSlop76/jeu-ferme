@@ -16,6 +16,7 @@ import { Inventory } from '../systems/InventorySystem';
 import { uiState } from '../ui/uiState';
 import { DayCycle } from '../systems/DayCycle';
 import { Energy } from '../systems/EnergySystem';
+import { FishingSystem } from '../systems/FishingSystem';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -28,6 +29,9 @@ export class WorldScene extends Phaser.Scene {
   private farmView!: FarmView;
   private cursor!: Phaser.GameObjects.Rectangle;   // surlignage de la case visée
   private cursorLabel!: Phaser.GameObjects.Text;   // nom de l'action possible
+  private water = new Set<string>();               // cases d'eau où l'on peut pêcher
+  private fishing = new FishingSystem();
+  private biteMark!: Phaser.GameObjects.Text;      // le « ! » au-dessus du joueur quand ça mord
 
   constructor() {
     super('World');
@@ -67,9 +71,14 @@ export class WorldScene extends Phaser.Scene {
         for (let tx = Math.floor(px / TILE_SIZE); tx < Math.ceil((px + w) / TILE_SIZE); tx++)
           blocked.add(`${tx},${ty}`);
     };
+    this.water.clear();
     for (const layerName of ['eau', 'eau_libre']) {
-      map.getLayer(layerName)!.data.forEach((row) => row.forEach((t) => { if (t.index > 0) blocked.add(`${t.x},${t.y}`); }));
+      map.getLayer(layerName)!.data.forEach((row) => row.forEach((t) => {
+        if (t.index > 0) { blocked.add(`${t.x},${t.y}`); this.water.add(`${t.x},${t.y}`); }
+      }));
     }
+    this.fishing.reset();
+    (window as unknown as { __fishing: unknown }).__fishing = this.fishing; // pour les tests automatiques
 
     for (const obj of objets.objects) {
       const x = obj.x ?? 0;
@@ -132,6 +141,10 @@ export class WorldScene extends Phaser.Scene {
       fontFamily: 'sans-serif', fontSize: '9px', color: '#ffffff', backgroundColor: '#00000088', padding: { x: 2, y: 1 },
     }).setOrigin(0.5, 1).setDepth(9001);
 
+    this.biteMark = this.add.text(0, 0, '!', {
+      fontFamily: 'sans-serif', fontSize: '16px', color: '#fff2a0', stroke: '#000000', strokeThickness: 3, fontStyle: 'bold',
+    }).setOrigin(0.5, 1).setDepth(9600).setVisible(false);
+
     this.cameras.main.startFollow(this.player.sprite, true, 0.12, 0.12);
     this.cameras.main.setRoundPixels(true);
     this.cameras.main.fadeIn(300);
@@ -153,7 +166,19 @@ export class WorldScene extends Phaser.Scene {
       this.player.move({ x: 0, y: 0 });
       return;
     }
-    this.player.move(this.controls.getDirection(), Energy.speedFactor());
+    const dir = this.controls.getDirection();
+    // Pêche en cours : bouger annule ; sinon on attend la touche.
+    if (this.fishing.isActive) {
+      if (dir.x !== 0 || dir.y !== 0) {
+        this.fishing.reset();
+        this.biteMark.setVisible(false);
+      } else {
+        this.player.move({ x: 0, y: 0 });
+        this.updateFishing();
+        return;
+      }
+    }
+    this.player.move(dir, Energy.speedFactor());
     // Position mémorisée en continu (pour la sauvegarde).
     gameState.player.x = this.player.x;
     gameState.player.y = this.player.y;
@@ -166,6 +191,15 @@ export class WorldScene extends Phaser.Scene {
 
     // Case visée = la tuile devant les pieds du joueur.
     const { tx, ty } = this.targetTile();
+    const isWater = this.water.has(`${tx},${ty}`);
+    if (isWater) {
+      // Devant l'eau : on peut pêcher.
+      this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(true).setStrokeStyle(1, 0x9ad4ff, 1);
+      this.cursorLabel.setPosition(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 2).setText('Pêcher').setVisible(true);
+      this.controls.setActionLabel('Pêcher');
+      if (this.controls.actionJustPressed()) this.fishing.cast(Date.now());
+      return;
+    }
     const action = this.farm.getAction(tx, ty);
     const label = action ? ACTION_LABELS[action] : (this.farm.getBlockReason(tx, ty) ?? '');
     this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(!!label || !!this.farm.getPlot(tx, ty));
@@ -189,6 +223,37 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** Pendant la pêche : attente, touche, capture ou raté. */
+  private updateFishing(): void {
+    const event = this.fishing.update(Date.now());
+    const px = this.player.x, py = this.player.y - 36;
+    if (event === 'bite') {
+      this.biteMark.setPosition(px, py).setVisible(true);
+      this.tweens.add({ targets: this.biteMark, y: py - 6, yoyo: true, duration: 120, repeat: 3 });
+    } else if (event === 'miss') {
+      this.biteMark.setVisible(false);
+      this.floatText('Raté, il est parti…', Math.floor(px / TILE_SIZE), Math.floor(py / TILE_SIZE));
+    }
+    const phase = this.fishing.phase;
+    this.cursorLabel.setVisible(false);
+    this.controls.setActionLabel(phase === 'bite' ? 'Ferrer !' : 'Attendre…');
+    if (this.controls.actionJustPressed()) {
+      if (phase === 'bite') {
+        const result = this.fishing.reel();
+        this.biteMark.setVisible(false);
+        if (result) {
+          this.floatText(result.stored ? `+1 ${result.fish.nom}` : 'Sac plein !', Math.floor(px / TILE_SIZE), Math.floor(py / TILE_SIZE));
+          this.game.events.emit('inventory-changed');
+          SaveSystem.autosave();
+        }
+      } else {
+        // Appuyer trop tôt effraie le poisson.
+        this.fishing.reset();
+        this.floatText('Trop tôt !', Math.floor(px / TILE_SIZE), Math.floor(py / TILE_SIZE));
+      }
+    }
+  }
+
   /** Tuile devant le joueur, selon la direction où il regarde. */
   private targetTile(): { tx: number; ty: number } {
     const feetX = Math.floor(this.player.x / TILE_SIZE);
@@ -201,7 +266,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private refreshHud(): void {
-    this.hud.setInfo(`Graines ×${Inventory.count('graine_navet')}   Navets ×${Inventory.count('navet')}`);
+    this.hud.setInfo(`Graines ×${Inventory.count('graine_navet')}  Navets ×${Inventory.count('navet')}  Sardines ×${Inventory.count('sardine')}`);
   }
 
   /** Petit texte qui monte et disparaît (retour visuel d'une récolte). */
