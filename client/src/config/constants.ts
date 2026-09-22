@@ -14,4 +14,4 @@ export const PLAYER_SPEED = 80;
 export const ASSETS_URL = `${import.meta.env.BASE_URL}assets/`;
 
 /** Version affichée à l'écran, à mettre à jour à chaque étape validée. */
-export const GAME_VERSION = 'v0.3.3 — phase 4';
+export const GAME_VERSION = 'v0.3.4 — phase 4';
