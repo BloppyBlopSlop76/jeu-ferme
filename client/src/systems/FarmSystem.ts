@@ -51,13 +51,14 @@ export class FarmSystem {
     switch (action) {
       case 'plant': {
         // Planter crée la case de terre et y met la graine d'un coup.
-        const plot: PlotState = { tx, ty, crop: DEFAULT_CROP, stage: 0, watered: false, progress: 0 };
+        const plot: PlotState = { tx, ty, crop: DEFAULT_CROP, stage: 0, watered: false, wateredAt: null };
         gameState.farm[key] = plot;
         return { action, plot };
       }
       case 'water': {
         const plot = gameState.farm[key];
         plot.watered = true;
+        plot.wateredAt = Date.now();
         return { action, plot };
       }
       case 'harvest': {
@@ -70,19 +71,19 @@ export class FarmSystem {
     }
   }
 
-  /** Fait avancer la pousse. À appeler à chaque image avec le temps écoulé (ms). Renvoie les cases qui ont changé. */
-  tick(deltaMs: number): PlotState[] {
+  /**
+   * Fait avancer la pousse d'après le temps réel écoulé depuis l'arrosage. À appeler régulièrement
+   * (chaque image suffit). Renvoie les cases dont le stade a changé.
+   */
+  tick(now: number = Date.now()): PlotState[] {
     const changed: PlotState[] = [];
     for (const plot of Object.values(gameState.farm)) {
-      if (!plot.crop || !plot.watered) continue;
+      if (!plot.crop || !plot.watered || plot.wateredAt === null) continue;
       const crop = CROPS[plot.crop];
-      if (plot.stage >= crop.stages - 1) continue;
-      plot.progress += deltaMs;
-      if (plot.progress >= crop.stageMs) {
-        plot.stage += 1;
-        plot.progress = 0;
-        // Un seul arrosage suffit pour toute la pousse (planter → arroser → attendre → récolter).
-        // L'arrosage quotidien reviendra éventuellement avec les journées, en phase 6.
+      const elapsedStages = Math.floor((now - plot.wateredAt) / crop.stageMs);
+      const newStage = Math.min(crop.stages - 1, elapsedStages);
+      if (newStage > plot.stage) {
+        plot.stage = newStage;
         changed.push(plot);
       }
     }
