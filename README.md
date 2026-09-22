@@ -10,6 +10,9 @@ Graphismes : **Sprout Lands** par **Cup Nooble** — https://cupnooble.itch.io/s
 Pack de base utilisé sous sa licence non commerciale (voir `client/public/assets/SPROUT_LANDS_LICENSE.txt`).
 Certains sprites (maison, pont) sont des compositions de tuiles de ce pack.
 
+Personnage du joueur : création originale du projet (pixel art en couches, généré par `client/tools/chibi.py`).
+Icône de la sardine : création originale du projet.
+
 ## Développement
 
 Le code est dans `client/`. La carte du terrain est générée par `client/tools/generate-map.mjs`
