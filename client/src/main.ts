@@ -9,6 +9,7 @@ import { UIScene } from './scenes/UIScene';
 import { CreateScene } from './scenes/CreateScene';
 import { AppearanceScene } from './scenes/AppearanceScene';
 import { gameState } from './state/GameState';
+import { uiState } from './ui/uiState';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,            // WebGL si disponible, sinon Canvas
@@ -33,3 +34,4 @@ new Phaser.Game(config);
 
 // Accès à l'état depuis la console du navigateur (débogage et tests automatiques). Aucun effet sur le jeu.
 (window as unknown as { __gameState: unknown }).__gameState = gameState;
+(window as unknown as { __uiState: unknown }).__uiState = uiState;
