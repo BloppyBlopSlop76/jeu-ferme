@@ -72,6 +72,7 @@ export class HouseScene extends Phaser.Scene {
 
     this.player = new Player(this, left + ROOM_W / 2, top + ROOM_H - 14, 'up');
     this.physics.add.overlap(this.player.sprite, exit, () => this.leave());
+    (window as unknown as { __house: unknown }).__house = this; // pour les tests automatiques
 
     // Case visée (pour poser le lit) et le lit s'il est posé.
     this.cursor = this.add.rectangle(0, 0, TILE_SIZE, TILE_SIZE, 0xffffff, 0.15).setOrigin(0, 0).setStrokeStyle(1, 0xfff2a0, 1).setDepth(9000).setVisible(false);
@@ -106,27 +107,24 @@ export class HouseScene extends Phaser.Scene {
     const { tx, ty } = this.targetTile();
     const bed = gameState.house.bed;
     const onBed = bed !== null && tx === bed.tx && (ty === bed.ty || ty === bed.ty + 1);
-    const canPlace = bed === null && Inventory.count('lit') > 0 && this.isFreeFloor(tx, ty) && this.isFreeFloor(tx, ty + 1);
+    const nearStraw = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.straw.x, this.straw.y + 8) < 32;
+    // Ordre de priorité : dormir dans le lit, dormir sur la paille, poser le lit (jamais poser le lit à côté de la paille par erreur).
+    const canPlace = !onBed && !nearStraw && bed === null && Inventory.count('lit') > 0 && this.isFreeFloor(tx, ty) && this.isFreeFloor(tx, ty + 1);
     this.cursor.setPosition(this.left + tx * TILE_SIZE, this.top + ty * TILE_SIZE).setVisible(canPlace);
     this.cursorLabel.setPosition(this.left + tx * TILE_SIZE + TILE_SIZE / 2, this.top + ty * TILE_SIZE - 2).setText('Poser le lit').setVisible(canPlace);
+    this.strawLabel.setVisible(nearStraw && !onBed);
     if (onBed) {
       this.controls.setActionLabel('Dormir');
-      this.strawLabel.setVisible(false);
       if (this.controls.actionJustPressed()) this.sleep(true);
       return;
     }
-    if (canPlace) {
-      this.controls.setActionLabel('Poser le lit');
-      this.strawLabel.setVisible(false);
-      if (this.controls.actionJustPressed()) this.placeBed(tx, ty);
+    if (nearStraw) {
+      this.controls.setActionLabel('Dormir');
+      if (this.controls.actionJustPressed()) this.sleep(false);
       return;
     }
-
-    // Près du tas de paille : proposer de dormir (mal).
-    const near = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.straw.x, this.straw.y + 8) < 32;
-    this.strawLabel.setVisible(near);
-    this.controls.setActionLabel(near ? 'Dormir' : '');
-    if (near && this.controls.actionJustPressed()) this.sleep(false);
+    this.controls.setActionLabel(canPlace ? 'Poser le lit' : '');
+    if (canPlace && this.controls.actionJustPressed()) this.placeBed(tx, ty);
   }
 
   /** Case de la pièce devant les pieds du joueur (0..11 × 0..7). */

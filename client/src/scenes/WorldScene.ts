@@ -28,6 +28,8 @@ export class WorldScene extends Phaser.Scene {
   /** Cases avec lesquelles on peut interagir (boîte d'expédition, marchand). */
   private interact = new Map<string, 'shipping' | 'shop'>();
   private entering = false;
+  /** La porte ne s'active qu'une fois que le joueur en est sorti (évite l'aller-retour maison ↔ terrain au retour). */
+  private doorArmed = false;
 
   private farm!: FarmSystem;
   private farmView!: FarmView;
@@ -47,6 +49,7 @@ export class WorldScene extends Phaser.Scene {
   create(): void {
     // Une scène Phaser est réutilisée à chaque retour : on remet les drapeaux à zéro ici, pas dans le constructeur.
     this.entering = false;
+    this.doorArmed = false;
 
     const map = this.make.tilemap({ key: 'ferme' });
     const grass = map.addTilesetImage('grass', 'grass')!;
@@ -217,6 +220,7 @@ export class WorldScene extends Phaser.Scene {
       }
     }
     this.player.move(dir, Energy.speedFactor());
+    if (!this.doorArmed && !this.physics.overlap(this.player.sprite, this.doorZone)) this.doorArmed = true;
     // Position mémorisée en continu (pour la sauvegarde).
     gameState.player.x = this.player.x;
     gameState.player.y = this.player.y;
@@ -259,7 +263,7 @@ export class WorldScene extends Phaser.Scene {
     this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(!!label || !!this.farm.getPlot(tx, ty));
     this.cursor.setStrokeStyle(1, action ? 0xfff2a0 : 0xffffff, action ? 1 : 0.5);
     this.cursorLabel.setPosition(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 2).setText(label).setVisible(!!label);
-    this.controls.setActionLabel(action ? label : '');
+    this.controls.setActionLabel(action ? ACTION_LABELS[action] : ''); // sur le bouton rond : le mot seul (la graine est dans la barre rapide)
 
     if (this.controls.actionJustPressed() && action) {
       const result = this.farm.act(tx, ty);
@@ -376,9 +380,10 @@ export class WorldScene extends Phaser.Scene {
 
   /** Entrée dans la maison : on mémorise la position devant la porte, fondu, changement de scène. */
   private enterHouse(): void {
-    if (this.entering) return;
+    if (this.entering || !this.doorArmed) return;
     this.entering = true;
-    gameState.player = { x: this.player.x, y: this.player.y + 10, facing: 'down' };
+    // Au retour, le joueur réapparaît juste sous la porte, hors de sa zone (sinon il y rentrerait aussitôt).
+    gameState.player = { x: this.doorZone.x, y: this.doorZone.y + this.doorZone.height / 2 + 12, facing: 'down' };
     gameState.location = 'house';
     SaveSystem.autosave();
     this.cameras.main.fadeOut(250);
