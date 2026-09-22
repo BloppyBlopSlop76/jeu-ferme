@@ -29,6 +29,8 @@ function migrate(saved: Partial<GameState> & { version?: number }): Partial<Game
   if (v === 4) { s.character = { name: '', trait: null }; v = 5; }
   // v5 → v6 : apparence du personnage. null → l'écran « Ton apparence » s'affichera une fois, la partie est gardée.
   if (v === 5) { (s.character as Record<string, unknown>).appearance = null; v = 6; }
+  // v6 → v7 : économie (pièces, boîtes d'expédition, lit, graine choisie). Tout le monde part avec 50 pièces.
+  if (v === 6) { s.money = 50; s.shipping = []; s.house = { bed: null }; s.selectedSeed = 'graine_navet'; v = 7; }
   s.version = v;
   return s as Partial<GameState>;
 }
@@ -59,6 +61,7 @@ export const SaveSystem = {
         settings: { ...fresh.settings, ...saved.settings },
         skills: { ...fresh.skills, ...saved.skills },
         character: { ...fresh.character, ...saved.character },
+        house: { ...fresh.house, ...saved.house },
       });
       // Sac : toujours le bon nombre de cases (robuste si la taille du sac change un jour).
       const slots = gameState.inventory.slots.slice(0, fresh.inventory.slots.length);

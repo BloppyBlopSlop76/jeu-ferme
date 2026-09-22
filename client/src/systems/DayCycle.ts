@@ -5,24 +5,27 @@ import { TimeSystem } from './TimeSystem';
 import { Energy } from './EnergySystem';
 import { FarmSystem } from './FarmSystem';
 import type { PlotState } from '../state/GameState';
+import { Economy } from './EconomySystem';
 
 export interface DayCycleResult {
   daysPassed: number;
   /** Cases dont le stade a changé (à redessiner). */
   grown: PlotState[];
+  /** Pièces versées par les boîtes d'expédition ce matin (0 si rien). */
+  shippingPaid: number;
 }
 
 export const DayCycle = {
   update(now: number = Date.now()): DayCycleResult {
     const { gameMinutes, daysPassed } = TimeSystem.tick(now);
     Energy.regen(gameMinutes);
-    return { daysPassed, grown: daysPassed > 0 ? FarmSystem.growNights(daysPassed) : [] };
+    return { daysPassed, grown: daysPassed > 0 ? FarmSystem.growNights(daysPassed) : [], shippingPaid: daysPassed > 0 ? Economy.payShipping() : 0 };
   },
 
   /** Dormir sur un couchage : saute au lendemain matin, rend de l'énergie, fait pousser. */
   sleep(energyRestored: number): DayCycleResult {
     const daysPassed = TimeSystem.sleepUntilMorning();
     Energy.restore(energyRestored);
-    return { daysPassed, grown: daysPassed > 0 ? FarmSystem.growNights(daysPassed) : [] };
+    return { daysPassed, grown: daysPassed > 0 ? FarmSystem.growNights(daysPassed) : [], shippingPaid: daysPassed > 0 ? Economy.payShipping() : 0 };
   },
 };

@@ -3,6 +3,7 @@
 // réutilisera en phase 13 pour valider les actions.
 
 import { CROPS } from '../data/crops';
+import { ITEMS } from '../data/items';
 import { gameState, plotKey, type PlotState } from '../state/GameState';
 import { Inventory } from './InventorySystem';
 import { Energy } from './EnergySystem';
@@ -18,10 +19,21 @@ export const ACTION_LABELS: Record<FarmAction, string> = {
   harvest: 'Récolter',
 };
 
-/** Graine utilisée quand on plante (une seule disponible tant qu'il n'y a pas de boutique). */
-export const DEFAULT_SEED = 'graine_navet';
-/** Provisoire (pas de boutique) : une récolte rend aussi des graines, pour ne jamais rester bloqué. */
+/** Une récolte rend aussi des graines de la même culture, pour ne jamais rester bloqué. */
 export const SEEDS_PER_HARVEST = 2;
+
+/** Graine que le bouton d'action plante : celle choisie dans le sac, sinon la première graine du sac. */
+export function currentSeed(): string | null {
+  if (Inventory.count(gameState.selectedSeed) > 0) return gameState.selectedSeed;
+  const slot = gameState.inventory.slots.find((s) => s && ITEMS[s.item].kind === 'seed');
+  if (slot) { gameState.selectedSeed = slot.item; return slot.item; }
+  return null;
+}
+
+/** La graine qui donne cette culture (pour rendre des graines à la récolte). */
+function seedFor(cropId: string): string | undefined {
+  return Object.values(ITEMS).find((i) => i.kind === 'seed' && i.crop === cropId)?.id;
+}
 
 export class FarmSystem {
   /** @param isFreeGround dit si une case est du sol libre (herbe sans eau, arbre, bâtiment, pont…). */
@@ -39,7 +51,7 @@ export class FarmSystem {
   getAction(tx: number, ty: number): FarmAction | null {
     const plot = this.getPlot(tx, ty);
     if (!plot || !plot.crop) {
-      return this.isPlantable(tx, ty) && Inventory.count(DEFAULT_SEED) > 0 ? 'plant' : null;
+      return this.isPlantable(tx, ty) && currentSeed() !== null ? 'plant' : null;
     }
     const crop = CROPS[plot.crop];
     if (plot.stage >= crop.stages - 1) return Inventory.canAdd(crop.id, crop.yield) ? 'harvest' : null;
@@ -51,7 +63,7 @@ export class FarmSystem {
   getBlockReason(tx: number, ty: number): string | null {
     const plot = this.getPlot(tx, ty);
     if (!plot || !plot.crop) {
-      if (this.isPlantable(tx, ty) && Inventory.count(DEFAULT_SEED) === 0) return 'Plus de graines';
+      if (this.isPlantable(tx, ty) && currentSeed() === null) return 'Plus de graines';
       return null;
     }
     const crop = CROPS[plot.crop];
@@ -66,8 +78,10 @@ export class FarmSystem {
     const key = plotKey(tx, ty);
     switch (action) {
       case 'plant': {
-        if (!Inventory.remove(DEFAULT_SEED, 1)) return null;
-        const plot: PlotState = { tx, ty, crop: CROPS.navet.id, stage: 0, watered: false, nights: 0 };
+        const seed = currentSeed();
+        if (!seed || !Inventory.remove(seed, 1)) return null;
+        const cropId = ITEMS[seed].crop ?? 'navet';
+        const plot: PlotState = { tx, ty, crop: CROPS[cropId].id, stage: 0, watered: false, nights: 0 };
         Energy.spendFor('plant');
         gameState.farm[key] = plot;
         return { action, plot, levelUp: Skills.gain('agriculture', XP_GAIN.plant) };
@@ -86,11 +100,12 @@ export class FarmSystem {
         const lucky = Math.random() < Skills.bonus('extra_yield_chance') ? 1 : 0;
         const yieldQty = crop.yield + Skills.bonus('harvest_yield') + lucky;
         const seedsQty = SEEDS_PER_HARVEST + Skills.bonus('seeds_per_harvest');
+        const seedItem = seedFor(crop.id) ?? 'graine_navet';
         const cropLeft = Inventory.add(crop.id, yieldQty);
-        const seedsLeft = Inventory.add(DEFAULT_SEED, seedsQty); // sac plein : le surplus est perdu, tant pis
+        const seedsLeft = Inventory.add(seedItem, seedsQty); // sac plein : le surplus est perdu, tant pis
         delete gameState.farm[key]; // la terre redevient de l'herbe
         const gained = [{ item: crop.id, qty: yieldQty - cropLeft }];
-        if (seedsQty - seedsLeft > 0) gained.push({ item: DEFAULT_SEED, qty: seedsQty - seedsLeft });
+        if (seedsQty - seedsLeft > 0) gained.push({ item: seedItem, qty: seedsQty - seedsLeft });
         return { action, gained, levelUp: Skills.gain('agriculture', XP_GAIN.harvest) };
       }
     }
