@@ -25,6 +25,8 @@ function migrate(saved: Partial<GameState> & { version?: number }): Partial<Game
   if (v === 2) v = 3;
   // v3 → v4 : arrivée des compétences (phase 8) : tout le monde part du niveau 1.
   if (v === 3) { s.skills = { agriculture: { xp: 0 }, peche: { xp: 0 } }; v = 4; }
+  // v4 → v5 : prénom et trait de caractère. trait = null → l'écran de création s'affichera une fois, la partie est gardée.
+  if (v === 4) { s.character = { name: '', trait: null }; v = 5; }
   s.version = v;
   return s as Partial<GameState>;
 }
@@ -54,6 +56,7 @@ export const SaveSystem = {
         inventory: { ...fresh.inventory, ...saved.inventory },
         settings: { ...fresh.settings, ...saved.settings },
         skills: { ...fresh.skills, ...saved.skills },
+        character: { ...fresh.character, ...saved.character },
       });
       // Sac : toujours le bon nombre de cases (robuste si la taille du sac change un jour).
       const slots = gameState.inventory.slots.slice(0, fresh.inventory.slots.length);

@@ -3,6 +3,7 @@
 
 import { LEVEL_THRESHOLDS, MAX_LEVEL, SKILLS, type PerkDef, type PerkEffect, type SkillId } from '../data/skills';
 import { gameState } from '../state/GameState';
+import { TRAITS, type TraitDef } from '../data/traits';
 
 export interface SkillProgress {
   level: number;
@@ -35,11 +36,18 @@ export const Skills = {
     };
   },
 
-  /** Ajoute de l'XP. Renvoie le nouveau niveau si un palier vient d'être franchi, sinon null. */
+  /** Le trait de caractère du personnage, s'il est choisi. */
+  trait(): TraitDef | null {
+    const id = gameState.character.trait;
+    return id ? TRAITS[id] ?? null : null;
+  },
+
+  /** Ajoute de l'XP (bonus du trait inclus). Renvoie le nouveau niveau si un palier vient d'être franchi, sinon null. */
   gain(id: SkillId, amount: number): number | null {
     const before = this.level(id);
     const entry = gameState.skills[id] ?? (gameState.skills[id] = { xp: 0 });
-    entry.xp += amount;
+    const multiplier = 1 + this.traitEffects().filter((e) => e.kind === 'xp_bonus' && e.skill === id).reduce((a, e) => a + e.value, 0);
+    entry.xp = Math.round((entry.xp + amount * multiplier) * 100) / 100; // deux décimales : pas de dérive
     const after = this.level(id);
     return after > before ? after : null;
   },
@@ -56,16 +64,20 @@ export const Skills = {
     return SKILLS[id].perks.find((p) => p.level > level) ?? null;
   },
 
-  /** Somme des valeurs d'un type d'effet, toutes compétences confondues. */
+  /** Effets du trait de caractère (liste vide sans trait). */
+  traitEffects(): PerkEffect[] {
+    return this.trait()?.effects ?? [];
+  },
+
+  /** Somme des valeurs d'un type d'effet : niveaux de toutes les compétences + trait de caractère. */
   bonus(kind: PerkEffect['kind'], action?: string): number {
+    const effects: PerkEffect[] = [...this.traitEffects()];
+    for (const id of Object.keys(SKILLS) as SkillId[]) for (const perk of this.unlocked(id)) effects.push(perk.effect);
     let total = 0;
-    for (const id of Object.keys(SKILLS) as SkillId[]) {
-      for (const perk of this.unlocked(id)) {
-        const e = perk.effect;
-        if (e.kind !== kind) continue;
-        if (e.kind === 'energy_cost' && e.action !== action) continue;
-        total += e.value;
-      }
+    for (const e of effects) {
+      if (e.kind !== kind) continue;
+      if (e.kind === 'energy_cost' && e.action !== action) continue;
+      total += e.value;
     }
     return total;
   },

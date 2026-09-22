@@ -82,7 +82,9 @@ export class FarmSystem {
         const plot = gameState.farm[key];
         const crop = CROPS[plot.crop!];
         Energy.spendFor('harvest');
-        const yieldQty = crop.yield + Skills.bonus('harvest_yield');
+        // Bonus de compétence (+1 fixe) et de trait (parfois +1).
+        const lucky = Math.random() < Skills.bonus('extra_yield_chance') ? 1 : 0;
+        const yieldQty = crop.yield + Skills.bonus('harvest_yield') + lucky;
         const seedsQty = SEEDS_PER_HARVEST + Skills.bonus('seeds_per_harvest');
         const cropLeft = Inventory.add(crop.id, yieldQty);
         const seedsLeft = Inventory.add(DEFAULT_SEED, seedsQty); // sac plein : le surplus est perdu, tant pis
