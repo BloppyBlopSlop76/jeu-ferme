@@ -1,4 +1,4 @@
-// Panneau « Sac / Talents / Options / Commandes » : inventaire, compétences, réglages, raccourcis.
+// Panneau « Sac / Talents / Collection / Options / Commandes » : inventaire, compétences, musée, réglages, raccourcis.
 // Vit dans la scène UI (caméra fixe), au-dessus du jeu.
 
 import Phaser from 'phaser';
@@ -8,6 +8,8 @@ import { gameState, INVENTORY_SIZE } from '../state/GameState';
 import { SaveSystem } from '../systems/SaveSystem';
 import { Skills } from '../systems/SkillSystem';
 import { SKILLS, MAX_LEVEL, type SkillId } from '../data/skills';
+import { COLLECTIBLES } from '../data/collection';
+import { Museum } from '../systems/MuseumSystem';
 import { uiState } from './uiState';
 
 const PANEL_W = 300;
@@ -17,7 +19,7 @@ const CELL = 34;
 const FONT = { fontFamily: 'sans-serif', fontSize: '10px', color: '#2b2118' } as const;
 const FONT_SMALL = { fontFamily: 'sans-serif', fontSize: '9px', color: '#2b2118' } as const;
 
-type Tab = 'sac' | 'talents' | 'options' | 'commandes';
+type Tab = 'sac' | 'talents' | 'collection' | 'options' | 'commandes';
 
 export class InventoryPanel {
   private root: Phaser.GameObjects.Container;
@@ -29,6 +31,12 @@ export class InventoryPanel {
   private commandesPage!: Phaser.GameObjects.Container;
   private tabTalents!: Phaser.GameObjects.Rectangle;
   private talentsPage!: Phaser.GameObjects.Container;
+  private tabCollection!: Phaser.GameObjects.Rectangle;
+  private collectionPage!: Phaser.GameObjects.Container;
+  private collectionCells: { icon: Phaser.GameObjects.Image; name: Phaser.GameObjects.Text }[] = [];
+  private collectionCounter!: Phaser.GameObjects.Text;
+  private collectionNext!: Phaser.GameObjects.Text;
+  private collectionLabel!: Phaser.GameObjects.Text;
   private traitLabel!: Phaser.GameObjects.Text;
   private talentRows: Record<string, { level: Phaser.GameObjects.Text; bar: Phaser.GameObjects.Rectangle; xp: Phaser.GameObjects.Text; next: Phaser.GameObjects.Text }> = {};
   private cells: { icon: Phaser.GameObjects.Image; qty: Phaser.GameObjects.Text }[] = [];
@@ -50,10 +58,11 @@ export class InventoryPanel {
     this.root.add([shade, frame]);
 
     // Onglets.
-    this.tabSac = this.makeTab(8, -12, 'Sac', () => this.showTab('sac'));
-    this.tabTalents = this.makeTab(62, -12, 'Talents', () => this.showTab('talents'));
-    this.tabOptions = this.makeTab(122, -12, 'Options', () => this.showTab('options'));
-    this.tabCommandes = this.makeTab(182, -12, 'Commandes', () => this.showTab('commandes'));
+    this.tabSac = this.makeTab(8, -12, 40, 'Sac', () => this.showTab('sac'));
+    this.tabTalents = this.makeTab(50, -12, 50, 'Talents', () => this.showTab('talents'));
+    this.tabCollection = this.makeTab(102, -12, 62, 'Collection', () => this.showTab('collection'));
+    this.tabOptions = this.makeTab(166, -12, 50, 'Options', () => this.showTab('options'));
+    this.tabCommandes = this.makeTab(218, -12, 68, 'Commandes', () => this.showTab('commandes'));
     // Bouton fermer.
     this.makeButton(PANEL_W - 30, 6, 24, 16, '✕', () => this.close());
 
@@ -61,9 +70,11 @@ export class InventoryPanel {
     this.optionsPage = scene.add.container(0, 0).setVisible(false);
     this.commandesPage = scene.add.container(0, 0).setVisible(false);
     this.talentsPage = scene.add.container(0, 0).setVisible(false);
-    this.root.add([this.sacPage, this.optionsPage, this.commandesPage, this.talentsPage]);
+    this.collectionPage = scene.add.container(0, 0).setVisible(false);
+    this.root.add([this.sacPage, this.optionsPage, this.commandesPage, this.talentsPage, this.collectionPage]);
     this.buildSac();
     this.buildTalents();
+    this.buildCollection();
     this.buildOptions();
     this.buildCommandes();
 
@@ -73,8 +84,7 @@ export class InventoryPanel {
 
   // ---------- Construction ----------
 
-  private makeTab(x: number, y: number, label: string, onClick: () => void): Phaser.GameObjects.Rectangle {
-    const w = label.length > 7 ? 68 : 52;
+  private makeTab(x: number, y: number, w: number, label: string, onClick: () => void): Phaser.GameObjects.Rectangle {
     const r = this.scene.add.rectangle(x, y, w, 16, 0xd9c49a, 1).setOrigin(0, 0).setStrokeStyle(1, 0x6b4a2b).setInteractive();
     const t = this.scene.add.text(x + w / 2, y + 8, label, FONT).setOrigin(0.5);
     r.on('pointerdown', onClick);
@@ -169,6 +179,45 @@ export class InventoryPanel {
     }
   }
 
+  private buildCollection(): void {
+    const p = this.collectionPage;
+    this.collectionCounter = this.scene.add.text(PANEL_W / 2, 30, '', { ...FONT, fontStyle: 'bold' }).setOrigin(0.5, 0);
+    p.add(this.collectionCounter);
+    // Une vitrine par objet collectionnable : icône ×2 (silhouette sombre tant qu'il manque), nom au toucher.
+    const cols = 6, cell = 44;
+    const gridX = (PANEL_W - cols * cell) / 2, gridY = 52;
+    COLLECTIBLES.forEach((id, i) => {
+      const cx = gridX + (i % cols) * cell, cy = gridY + Math.floor(i / cols) * cell;
+      const def = ITEMS[id];
+      const bg = this.scene.add.rectangle(cx, cy, cell - 4, cell - 4, 0xe6d3ae, 1).setOrigin(0, 0).setStrokeStyle(1, 0x9c7b52).setInteractive();
+      const icon = this.scene.add.image(cx + (cell - 4) / 2, cy + (cell - 4) / 2, def.icon.texture, def.icon.frame).setScale(2);
+      const name = this.scene.add.text(cx + (cell - 4) / 2, cy + cell - 2, '', { ...FONT_SMALL, color: '#6b5a48' }).setOrigin(0.5, 0);
+      bg.on('pointerdown', () => {
+        this.collectionLabel.setText(Museum.has(id) ? `${def.nom} — exposé au musée` : `${def.nom} — manque au musée (à donner au conservateur)`);
+      });
+      p.add([bg, icon, name]);
+      this.collectionCells.push({ icon, name });
+    });
+    this.collectionLabel = this.scene.add.text(PANEL_W / 2, gridY + cell + 12, '', { ...FONT, wordWrap: { width: PANEL_W - 40 } }).setOrigin(0.5, 0);
+    this.collectionNext = this.scene.add.text(PANEL_W / 2, PANEL_H - 40, '', { ...FONT_SMALL, color: '#6b5a48', wordWrap: { width: PANEL_W - 40 }, align: 'center' }).setOrigin(0.5, 0);
+    p.add([this.collectionLabel, this.collectionNext]);
+  }
+
+  private refreshCollection(): void {
+    this.collectionCounter.setText(`Musée : ${Museum.count()} / ${Museum.total()} objets exposés`);
+    COLLECTIBLES.forEach((id, i) => {
+      const c = this.collectionCells[i];
+      const found = Museum.has(id);
+      if (found) { c.icon.clearTint().setAlpha(1); c.name.setText(ITEMS[id].nom); }
+      else { c.icon.setTint(0x5a4636).setTintMode(Phaser.TintModes.FILL).setAlpha(0.55); c.name.setText('?'); }
+    });
+    this.collectionLabel.setText('Touche une vitrine pour voir le nom');
+    const next = Museum.nextReward();
+    this.collectionNext.setText(next
+      ? `Prochaine récompense : ${next.coins} pièces à ${next.count} objets exposés. Donne tes trouvailles au conservateur, au musée du bourg.`
+      : 'Collection complète : toutes les récompenses ont été gagnées !');
+  }
+
   private buildOptions(): void {
     const p = this.optionsPage;
     let y = 36;
@@ -238,16 +287,19 @@ export class InventoryPanel {
   private showTab(tab: Tab): void {
     this.sacPage.setVisible(tab === 'sac');
     this.talentsPage.setVisible(tab === 'talents');
+    this.collectionPage.setVisible(tab === 'collection');
     this.optionsPage.setVisible(tab === 'options');
     this.commandesPage.setVisible(tab === 'commandes');
     this.tabSac.setFillStyle(tab === 'sac' ? 0xf3e4c4 : 0xd9c49a);
     this.tabTalents.setFillStyle(tab === 'talents' ? 0xf3e4c4 : 0xd9c49a);
+    this.tabCollection.setFillStyle(tab === 'collection' ? 0xf3e4c4 : 0xd9c49a);
     this.tabOptions.setFillStyle(tab === 'options' ? 0xf3e4c4 : 0xd9c49a);
     this.tabCommandes.setFillStyle(tab === 'commandes' ? 0xf3e4c4 : 0xd9c49a);
     this.confirmReset = false;
     this.resetLabel?.setText('Nouvelle partie');
     if (tab === 'sac') this.refreshSac();
     else if (tab === 'talents') this.refreshTalents();
+    else if (tab === 'collection') this.refreshCollection();
     else if (tab === 'options') this.refreshOptions();
   }
 
