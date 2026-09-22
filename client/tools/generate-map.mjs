@@ -76,6 +76,13 @@ add({ name: 'porte_maison', type: 'door', x: HOUSE_X + 32, y: HOUSE_Y + 80, widt
   properties: [{ name: 'target', type: 'string', value: 'house' }] });
 // Point de départ du joueur : devant la maison.
 add({ name: 'depart', type: 'spawn', x: HOUSE_X + 40, y: HOUSE_Y + 100, width: 0, height: 0, point: true });
+// Boîte d'expédition (16x16) collée au mur droit de la maison : on y dépose ce qu'on vend, payé le lendemain matin.
+add({ name: 'boite_expedition', type: 'shipping', x: HOUSE_X + 80, y: HOUSE_Y + 80, width: 16, height: 16 });
+// Boutique (80x80) de l'autre côté de la rivière, et le marchand devant sa porte.
+const SHOP_X = 44 * TILE, SHOP_Y = 10 * TILE;
+add({ name: 'boutique', type: 'shop', x: SHOP_X, y: SHOP_Y + 80, width: 80, height: 80 });
+add({ name: 'marchand', type: 'npc', x: SHOP_X + 32, y: SHOP_Y + 96, width: 16, height: 16,
+  properties: [{ name: 'role', type: 'string', value: 'marchand' }] });
 // Pont (48x32) sur la rivière.
 add({ name: 'pont', type: 'bridge', x: RIVER_X0 * TILE, y: (BRIDGE_Y1 + 1) * TILE, width: 48, height: 32 });
 
