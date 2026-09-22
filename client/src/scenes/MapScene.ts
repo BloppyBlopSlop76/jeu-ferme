@@ -14,9 +14,10 @@ import { uiState } from '../ui/uiState';
 import { DayCycle } from '../systems/DayCycle';
 import { Energy } from '../systems/EnergySystem';
 import { NPCS } from '../data/npcs';
+import { Museum } from '../systems/MuseumSystem';
 
 /** Ce qu'on peut faire sur une case visée (hors agriculture / pêche). */
-export type Interact = { kind: 'shop' } | { kind: 'shipping' } | { kind: 'talk'; npc: string };
+export type Interact = { kind: 'shop' } | { kind: 'shipping' } | { kind: 'museum'; npc: string } | { kind: 'talk'; npc: string };
 
 interface Exit { zone: Phaser.GameObjects.Zone; target: LocationId }
 
@@ -155,7 +156,7 @@ export abstract class MapScene extends Phaser.Scene {
         npc.play(anim);
         this.obstacles.add(this.add.zone(npc.x, y - 4, 12, 8));
         this.block(x, y - 16, w, 16);
-        this.interact.set(`${Math.floor(x / TILE_SIZE)},${Math.floor((y - 1) / TILE_SIZE)}`, def.role === 'shop' ? { kind: 'shop' } : { kind: 'talk', npc: def.id });
+        this.interact.set(`${Math.floor(x / TILE_SIZE)},${Math.floor((y - 1) / TILE_SIZE)}`, def.role === 'shop' ? { kind: 'shop' } : { kind: def.role, npc: def.id });
         break;
       }
       case 'shipping': {
@@ -213,6 +214,8 @@ export abstract class MapScene extends Phaser.Scene {
       if (this.controls.actionJustPressed()) {
         if (thing.kind === 'shop') this.game.events.emit('open-shop');
         else if (thing.kind === 'shipping') this.game.events.emit('open-shipping');
+        // Le conservateur ouvre le musée s'il y a quelque chose à exposer dans le sac, sinon il parle.
+        else if (thing.kind === 'museum' && Museum.donatable().length > 0) this.game.events.emit('open-museum');
         else this.game.events.emit('dialogue', thing.npc);
       }
       return;

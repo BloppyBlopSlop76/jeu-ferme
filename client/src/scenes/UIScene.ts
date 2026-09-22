@@ -7,6 +7,7 @@ import { InventoryPanel } from '../ui/InventoryPanel';
 import { ClockWidget } from '../ui/ClockWidget';
 import { Hotbar } from '../ui/Hotbar';
 import { TradePanel } from '../ui/TradePanel';
+import { MuseumPanel } from '../ui/MuseumPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { SaveSystem } from '../systems/SaveSystem';
 import { TimeSystem } from '../systems/TimeSystem';
@@ -20,6 +21,7 @@ export class UIScene extends Phaser.Scene {
   private clock!: ClockWidget;
   private hotbar!: Hotbar;
   private trade!: TradePanel;
+  private museum!: MuseumPanel;
   private dialogue!: DialogueBox;
   private nightTint!: Phaser.GameObjects.Rectangle;
 
@@ -34,25 +36,28 @@ export class UIScene extends Phaser.Scene {
     this.panel = new InventoryPanel(this, () => this.resetGame(), () => this.openAppearance());
     this.hotbar = new Hotbar(this, () => this.game.events.emit('trade'));
     this.trade = new TradePanel(this, () => { this.game.events.emit('trade'); this.hotbar.refresh(true); });
+    this.museum = new MuseumPanel(this, () => { this.game.events.emit('trade'); this.hotbar.refresh(true); });
     // Les scènes de jeu demandent l'ouverture des panneaux d'échange.
     this.dialogue = new DialogueBox(this);
     const openShop = () => { if (!uiState.panelOpen) this.trade.open('shop'); };
     const openShipping = () => { if (!uiState.panelOpen) this.trade.open('shipping'); };
+    const openMuseum = () => { if (!uiState.panelOpen) this.museum.open(); };
     const openDialogue = (npc: string) => { if (!uiState.panelOpen) this.dialogue.open(npc); };
     this.game.events.on('open-shop', openShop);
     this.game.events.on('open-shipping', openShipping);
+    this.game.events.on('open-museum', openMuseum);
     this.game.events.on('dialogue', openDialogue);
-    this.events.once('shutdown', () => { this.game.events.off('open-shop', openShop); this.game.events.off('open-shipping', openShipping); this.game.events.off('dialogue', openDialogue); });
+    this.events.once('shutdown', () => { this.game.events.off('open-shop', openShop); this.game.events.off('open-shipping', openShipping); this.game.events.off('open-museum', openMuseum); this.game.events.off('dialogue', openDialogue); });
 
     // Bouton « Sac » en haut à droite (souris et tactile).
     const bx = GAME_WIDTH - 22, by = 30;
     const btn = this.add.rectangle(bx, by, 36, 16, 0xf3e4c4, 0.9).setStrokeStyle(1, 0x6b4a2b).setInteractive().setDepth(15000);
     this.add.text(bx, by, 'Sac', { fontFamily: 'sans-serif', fontSize: '9px', color: '#2b2118' }).setOrigin(0.5).setDepth(15001);
-    btn.on('pointerdown', () => { if (this.trade.isOpen || this.dialogue.isOpen) return; this.panel.toggle(); });
+    btn.on('pointerdown', () => { if (this.trade.isOpen || this.museum.isOpen || this.dialogue.isOpen) return; this.panel.toggle(); });
 
     // Clavier : I ouvre/ferme, Échap ferme.
-    this.input.keyboard?.on('keydown-I', () => { if (this.trade.isOpen || this.dialogue.isOpen) return; this.panel.toggle(); });
-    this.input.keyboard?.on('keydown-ESC', () => { if (this.panel.isOpen) this.panel.close(); if (this.trade.isOpen) this.trade.close(); });
+    this.input.keyboard?.on('keydown-I', () => { if (this.trade.isOpen || this.museum.isOpen || this.dialogue.isOpen) return; this.panel.toggle(); });
+    this.input.keyboard?.on('keydown-ESC', () => { if (this.panel.isOpen) this.panel.close(); if (this.trade.isOpen) this.trade.close(); if (this.museum.isOpen) this.museum.close(); });
 
     // Sauvegarde automatique : à intervalle régulier, et quand la page se cache (changement d'appli, écran éteint).
     this.time.addEvent({ delay: AUTOSAVE_EVERY_MS, loop: true, callback: () => SaveSystem.autosave() });
