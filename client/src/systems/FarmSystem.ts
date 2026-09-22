@@ -5,7 +5,9 @@
 import { CROPS } from '../data/crops';
 import { gameState, plotKey, type PlotState } from '../state/GameState';
 import { Inventory } from './InventorySystem';
-import { Energy, ENERGY_COST } from './EnergySystem';
+import { Energy } from './EnergySystem';
+import { Skills } from './SkillSystem';
+import { XP_GAIN } from '../data/skills';
 
 // Boucle voulue par Anthony : planter → arroser → attendre → récolter. Pas d'étape « bêcher ».
 export type FarmAction = 'plant' | 'water' | 'harvest';
@@ -58,7 +60,7 @@ export class FarmSystem {
   }
 
   /** Exécute l'action possible. Renvoie ce qui a été fait (pour l'affichage), ou null. */
-  act(tx: number, ty: number): { action: FarmAction; plot?: PlotState; gained?: { item: string; qty: number }[] } | null {
+  act(tx: number, ty: number): { action: FarmAction; plot?: PlotState; gained?: { item: string; qty: number }[]; levelUp: number | null } | null {
     const action = this.getAction(tx, ty);
     if (!action) return null;
     const key = plotKey(tx, ty);
@@ -66,26 +68,28 @@ export class FarmSystem {
       case 'plant': {
         if (!Inventory.remove(DEFAULT_SEED, 1)) return null;
         const plot: PlotState = { tx, ty, crop: CROPS.navet.id, stage: 0, watered: false, nights: 0 };
-        Energy.spend(ENERGY_COST.plant);
+        Energy.spendFor('plant');
         gameState.farm[key] = plot;
-        return { action, plot };
+        return { action, plot, levelUp: Skills.gain('agriculture', XP_GAIN.plant) };
       }
       case 'water': {
         const plot = gameState.farm[key];
         plot.watered = true;
-        Energy.spend(ENERGY_COST.water);
-        return { action, plot };
+        Energy.spendFor('water');
+        return { action, plot, levelUp: Skills.gain('agriculture', XP_GAIN.water) };
       }
       case 'harvest': {
         const plot = gameState.farm[key];
         const crop = CROPS[plot.crop!];
-        Energy.spend(ENERGY_COST.harvest);
-        Inventory.add(crop.id, crop.yield);
-        const seedsLeft = Inventory.add(DEFAULT_SEED, SEEDS_PER_HARVEST); // sac plein : graines perdues, tant pis
+        Energy.spendFor('harvest');
+        const yieldQty = crop.yield + Skills.bonus('harvest_yield');
+        const seedsQty = SEEDS_PER_HARVEST + Skills.bonus('seeds_per_harvest');
+        const cropLeft = Inventory.add(crop.id, yieldQty);
+        const seedsLeft = Inventory.add(DEFAULT_SEED, seedsQty); // sac plein : le surplus est perdu, tant pis
         delete gameState.farm[key]; // la terre redevient de l'herbe
-        const gained = [{ item: crop.id, qty: crop.yield }];
-        if (SEEDS_PER_HARVEST - seedsLeft > 0) gained.push({ item: DEFAULT_SEED, qty: SEEDS_PER_HARVEST - seedsLeft });
-        return { action, gained };
+        const gained = [{ item: crop.id, qty: yieldQty - cropLeft }];
+        if (seedsQty - seedsLeft > 0) gained.push({ item: DEFAULT_SEED, qty: seedsQty - seedsLeft });
+        return { action, gained, levelUp: Skills.gain('agriculture', XP_GAIN.harvest) };
       }
     }
   }

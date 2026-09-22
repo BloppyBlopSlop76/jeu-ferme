@@ -23,6 +23,8 @@ function migrate(saved: Partial<GameState> & { version?: number }): Partial<Game
   }
   // v2 → v3 : nuits de pousse comptées en total (pas par stade) — même champ `nights`, rien à convertir.
   if (v === 2) v = 3;
+  // v3 → v4 : arrivée des compétences (phase 8) : tout le monde part du niveau 1.
+  if (v === 3) { s.skills = { agriculture: { xp: 0 }, peche: { xp: 0 } }; v = 4; }
   s.version = v;
   return s as Partial<GameState>;
 }
@@ -51,7 +53,12 @@ export const SaveSystem = {
         player: { ...fresh.player, ...saved.player },
         inventory: { ...fresh.inventory, ...saved.inventory },
         settings: { ...fresh.settings, ...saved.settings },
+        skills: { ...fresh.skills, ...saved.skills },
       });
+      // Sac : toujours le bon nombre de cases (robuste si la taille du sac change un jour).
+      const slots = gameState.inventory.slots.slice(0, fresh.inventory.slots.length);
+      while (slots.length < fresh.inventory.slots.length) slots.push(null);
+      gameState.inventory.slots = slots;
       return true;
     } catch {
       return false;

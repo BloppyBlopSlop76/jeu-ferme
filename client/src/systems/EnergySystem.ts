@@ -2,9 +2,11 @@
 // À 0, les actions restent possibles ; seule la marche ralentit.
 
 import { gameState, ENERGY_MAX } from '../state/GameState';
+import { Skills } from './SkillSystem';
 
 /** Coût des actions, en points. Point de départ, à recalibrer avec les tests (phase 17). */
-export const ENERGY_COST = { plant: 3, water: 2, harvest: 2 } as const;
+export const ENERGY_COST = { plant: 3, water: 2, harvest: 2, fish: 3 } as const;
+export type EnergyAction = keyof typeof ENERGY_COST;
 /** Récupération naturelle : 4 points par heure de jeu (une journée sans rien faire recharge tout). */
 const REGEN_PER_GAME_MINUTE = 4 / 60;
 /** Vitesse de marche quand l'énergie est à 0 (fraction de la vitesse normale). */
@@ -16,6 +18,16 @@ export const Energy = {
   /** Dépense des points (jusqu'à 0, jamais en dessous). */
   spend(points: number): void {
     gameState.energy = Math.max(0, gameState.energy - points);
+  },
+
+  /** Coût réel d'une action, bonus de compétence déduits (jamais moins de 1). */
+  costOf(action: EnergyAction): number {
+    return Math.max(1, ENERGY_COST[action] - Skills.bonus('energy_cost', action));
+  },
+
+  /** Dépense le coût d'une action. */
+  spendFor(action: EnergyAction): void {
+    this.spend(this.costOf(action));
   },
 
   /** Rend des points (jusqu'au maximum). */
