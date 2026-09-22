@@ -18,12 +18,15 @@ import { DayCycle } from '../systems/DayCycle';
 import { Energy } from '../systems/EnergySystem';
 import { FishingSystem } from '../systems/FishingSystem';
 import { SKILLS } from '../data/skills';
+import { currentSeed } from '../systems/FarmSystem';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
   private controls!: InputController;
   private hud!: Hud;
   private doorZone!: Phaser.GameObjects.Zone;
+  /** Cases avec lesquelles on peut interagir (boîte d'expédition, marchand). */
+  private interact = new Map<string, 'shipping' | 'shop'>();
   private entering = false;
 
   private farm!: FarmSystem;
@@ -76,6 +79,7 @@ export class WorldScene extends Phaser.Scene {
           blocked.add(`${tx},${ty}`);
     };
     this.water.clear();
+    this.interact.clear();
     for (const layerName of ['eau', 'eau_libre']) {
       map.getLayer(layerName)!.data.forEach((row) => row.forEach((t) => {
         if (t.index > 0) { blocked.add(`${t.x},${t.y}`); this.water.add(`${t.x},${t.y}`); }
@@ -106,6 +110,31 @@ export class WorldScene extends Phaser.Scene {
           const trunk = this.add.zone(img.x, y - 4, size === 'big' ? 14 : 8, 8);
           obstacles.add(trunk);
           block(x, y - 16, w, 16); // le pied de l'arbre
+          break;
+        }
+        case 'shop': {
+          const img = this.add.image(x, y, 'shop').setOrigin(0, 1).setDepth(y);
+          block(x, y - img.height, img.width, img.height);
+          const wall = this.add.zone(x + 40, y - 16, img.width, 32);
+          obstacles.add(wall);
+          break;
+        }
+        case 'npc': {
+          // Le marchand, devant sa boutique : il se balance doucement sur place.
+          if (!this.anims.exists('npc-idle')) this.anims.create({ key: 'npc-idle', frames: this.anims.generateFrameNumbers('npc_marchand', { start: 0, end: 1 }), frameRate: 1.5, repeat: -1 });
+          const w = obj.width ?? 16;
+          const npc = this.add.sprite(x + w / 2, y, 'npc_marchand', 0).setOrigin(0.5, 0.8).setDepth(y);
+          npc.play('npc-idle');
+          obstacles.add(this.add.zone(npc.x, y - 4, 12, 8));
+          block(x, y - 16, w, 16);
+          this.interact.set(`${Math.floor(x / TILE_SIZE)},${Math.floor((y - 1) / TILE_SIZE)}`, 'shop');
+          break;
+        }
+        case 'shipping': {
+          this.add.image(x, y, 'shipping_box').setOrigin(0, 1).setDepth(y);
+          obstacles.add(this.add.zone(x + 8, y - 8, 16, 16));
+          block(x, y - 16, 16, 16);
+          this.interact.set(`${Math.floor(x / TILE_SIZE)},${Math.floor((y - 1) / TILE_SIZE)}`, 'shipping');
           break;
         }
         case 'bridge':
@@ -157,7 +186,9 @@ export class WorldScene extends Phaser.Scene {
 
     this.controls = createControls(this);
     this.hud = new Hud(this, gameState.character.name ? `Ferme de ${gameState.character.name}` : 'Ton terrain');
-    this.refreshHud();
+    const onTrade = () => this.refreshHud();
+    this.game.events.on('trade', onTrade);
+    this.events.once('shutdown', () => this.game.events.off('trade', onTrade));
 
     // Interface (sac, options) : une scène à part, toujours au-dessus.
     if (!this.scene.isActive('UI')) this.scene.launch('UI');
@@ -195,9 +226,20 @@ export class WorldScene extends Phaser.Scene {
     const cycle = DayCycle.update();
     for (const plot of cycle.grown) this.farmView.refresh(plot);
     if (cycle.daysPassed > 0) this.floatText(`Jour ${gameState.time.day}`, Math.floor(this.player.x / TILE_SIZE), Math.floor(this.player.y / TILE_SIZE) - 2);
+    if (cycle.shippingPaid > 0) { this.floatText(`Expédition : +${cycle.shippingPaid} pièces`, Math.floor(this.player.x / TILE_SIZE), Math.floor(this.player.y / TILE_SIZE) - 4); SaveSystem.autosave(); }
 
     // Case visée = la tuile devant les pieds du joueur.
     const { tx, ty } = this.targetTile();
+    // Devant la boîte d'expédition ou le marchand : un panneau (dans la scène UI).
+    const thing = this.interact.get(`${tx},${ty}`);
+    if (thing) {
+      const label = thing === 'shop' ? 'Parler' : 'Expédier';
+      this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(true).setStrokeStyle(1, 0xfff2a0, 1);
+      this.cursorLabel.setPosition(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 2).setText(label).setVisible(true);
+      this.controls.setActionLabel(label);
+      if (this.controls.actionJustPressed()) this.game.events.emit(thing === 'shop' ? 'open-shop' : 'open-shipping');
+      return;
+    }
     const isWater = this.water.has(`${tx},${ty}`);
     if (isWater) {
       // Devant l'eau : on peut pêcher.
@@ -212,7 +254,8 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const action = this.farm.getAction(tx, ty);
-    const label = action ? ACTION_LABELS[action] : (this.farm.getBlockReason(tx, ty) ?? '');
+    let label = action ? ACTION_LABELS[action] : (this.farm.getBlockReason(tx, ty) ?? '');
+    if (action === 'plant') { const seed = currentSeed(); if (seed) label += ` (${ITEMS[seed].nom.replace('Graine de ', '')})`; }
     this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(!!label || !!this.farm.getPlot(tx, ty));
     this.cursor.setStrokeStyle(1, action ? 0xfff2a0 : 0xffffff, action ? 1 : 0.5);
     this.cursorLabel.setPosition(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 2).setText(label).setVisible(!!label);
@@ -318,8 +361,9 @@ export class WorldScene extends Phaser.Scene {
     };
   }
 
+  /** Le bandeau texte a été remplacé par la barre rapide (scène UI) : plus rien à afficher ici. */
   private refreshHud(): void {
-    this.hud.setInfo(`Graines ×${Inventory.count('graine_navet')}  Navets ×${Inventory.count('navet')}  Sardines ×${Inventory.count('sardine')}`);
+    this.hud.setInfo('');
   }
 
   /** Petit texte qui monte et disparaît (retour visuel d'une récolte). */

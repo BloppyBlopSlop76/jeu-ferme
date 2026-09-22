@@ -27,6 +27,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image('things', 'things.png');
     this.load.image('walls', 'walls.png');
     this.load.image('dirt', 'dirt.png');
+    this.load.image('shop', 'shop.png');
+    this.load.image('shipping_box', 'shipping_box.png');
+    this.load.image('coin', 'coin.png');
+    this.load.image('furniture', 'furniture.png');
+    this.load.spritesheet('npc_marchand', 'npc_marchand.png', { frameWidth: 48, frameHeight: 48 });
     this.load.spritesheet('plants', 'plants.png', { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('fish', 'fish.png', { frameWidth: 16, frameHeight: 16 });
     // Personnage en couches (création originale, générée par tools/chibi.py).
@@ -41,6 +46,10 @@ export class BootScene extends Phaser.Scene {
     things.add('tree_small', 0, 0, 0, 16, 32);
     // Bande de mur plein (pour l'intérieur de la maison).
     this.textures.get('walls').add('wall_plain', 0, 16, 32, 16, 16);
+    // Lit bleu (16×24, à partir de y = 24 dans la feuille de meubles) et son icône (la tête de lit, 16×16).
+    const furniture = this.textures.get('furniture');
+    furniture.add('bed', 0, 16, 24, 16, 24);
+    furniture.add('bed_icon', 0, 16, 24, 16, 16);
 
     // Reprise de la partie sauvegardée sur cet appareil, s'il y en a une.
     SaveSystem.load();
