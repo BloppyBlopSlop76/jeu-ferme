@@ -1,5 +1,5 @@
-// Intérieur de la maison (phase 3) : une pièce simple, des murs, une sortie en bas.
-// La décoration et les meubles viendront dans la phase « maison ».
+// Intérieur de la maison : une pièce simple, un tas de paille pour dormir (mal), une sortie en bas.
+// Les meubles et le vrai lit (objet acheté) viendront dans la phase « maison ».
 
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from '../config/constants';
@@ -9,15 +9,23 @@ import { InputController } from '../systems/InputController';
 import { Hud } from '../ui/Hud';
 import { gameState } from '../state/GameState';
 import { SaveSystem } from '../systems/SaveSystem';
+import { DayCycle } from '../systems/DayCycle';
+import { Energy } from '../systems/EnergySystem';
 import { uiState } from '../ui/uiState';
 
 const ROOM_W = 12 * TILE_SIZE;  // 192 px
 const ROOM_H = 8 * TILE_SIZE;   // 128 px
 
+/** Le tas de paille remplit mal la fonction d'un lit : peu d'énergie rendue (décision d'Anthony). */
+const STRAW_ENERGY = 30;
+
 export class HouseScene extends Phaser.Scene {
   private player!: Player;
   private controls!: InputController;
   private leaving = false;
+  private sleeping = false;
+  private straw!: Phaser.GameObjects.Container;
+  private strawLabel!: Phaser.GameObjects.Text;
 
   constructor() {
     super('House');
@@ -25,6 +33,7 @@ export class HouseScene extends Phaser.Scene {
 
   create(): void {
     this.leaving = false; // la scène est réutilisée à chaque visite
+    this.sleeping = false;
 
     // La pièce est centrée dans l'écran ; la caméra ne bouge pas.
     const left = Math.floor((GAME_WIDTH - ROOM_W) / 2);
@@ -39,6 +48,12 @@ export class HouseScene extends Phaser.Scene {
     g.lineStyle(3, 0x5a3a2a, 1).strokeRect(left - 1, top - 33, ROOM_W + 2, ROOM_H + 34);
     // Paillasson devant la sortie.
     g.fillStyle(0x8b5a3c, 1).fillRect(left + ROOM_W / 2 - 20, top + ROOM_H - 6, 40, 6);
+
+    // Tas de paille dans le coin haut gauche.
+    this.straw = this.makeStraw(left + 28, top + 22);
+    this.strawLabel = this.add.text(this.straw.x, this.straw.y - 18, 'Dormir', {
+      fontFamily: 'sans-serif', fontSize: '9px', color: '#ffffff', backgroundColor: '#00000088', padding: { x: 2, y: 1 },
+    }).setOrigin(0.5, 1).setVisible(false).setDepth(9001);
 
     // Murs invisibles : le joueur reste dans la pièce.
     this.physics.world.setBounds(left, top - 8, ROOM_W, ROOM_H + 8);
@@ -59,8 +74,55 @@ export class HouseScene extends Phaser.Scene {
   }
 
   update(): void {
-    if (this.leaving) return;
-    this.player.move(uiState.panelOpen ? { x: 0, y: 0 } : this.controls.getDirection());
+    if (this.leaving || this.sleeping) return;
+    DayCycle.update(); // l'horloge tourne aussi à l'intérieur
+
+    if (uiState.panelOpen) {
+      this.player.move({ x: 0, y: 0 });
+      return;
+    }
+    this.player.move(this.controls.getDirection(), Energy.speedFactor());
+
+    // Près du tas de paille : proposer de dormir.
+    const near = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.straw.x, this.straw.y + 8) < 32;
+    this.strawLabel.setVisible(near);
+    this.controls.setActionLabel(near ? 'Dormir' : '');
+    if (near && this.controls.actionJustPressed()) this.sleep();
+  }
+
+  /** Un tas de paille dessiné par le code : trois bosses jaunes et quelques brins. */
+  private makeStraw(x: number, y: number): Phaser.GameObjects.Container {
+    const g = this.add.graphics();
+    g.fillStyle(0xd9b24a, 1);
+    g.fillEllipse(0, 6, 34, 14);
+    g.fillEllipse(-7, 0, 20, 12);
+    g.fillEllipse(8, 1, 20, 12);
+    g.lineStyle(1, 0xb8902e, 1);
+    for (let i = -14; i <= 14; i += 5) g.lineBetween(i, 10, i + 3, 2);
+    g.lineStyle(1, 0xf1d67a, 1);
+    for (let i = -12; i <= 12; i += 6) g.lineBetween(i, 8, i + 2, 1);
+    const c = this.add.container(x, y, [g]).setDepth(y);
+    return c;
+  }
+
+  /** Dormir : fondu, on saute au lendemain 6 h, un peu d'énergie, sauvegarde. */
+  private sleep(): void {
+    this.sleeping = true;
+    this.player.move({ x: 0, y: 0 });
+    this.cameras.main.fadeOut(400);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      const result = DayCycle.sleep(STRAW_ENERGY);
+      SaveSystem.autosave();
+      this.cameras.main.fadeIn(600);
+      const msg = result.daysPassed > 0
+        ? `Jour ${gameState.time.day} — mal dormi sur la paille (+${STRAW_ENERGY} énergie)`
+        : `Petite sieste (+${STRAW_ENERGY} énergie)`;
+      const t = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, msg, {
+        fontFamily: 'sans-serif', fontSize: '11px', color: '#fff2a0', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(9500);
+      this.tweens.add({ targets: t, alpha: 0, delay: 1800, duration: 500, onComplete: () => t.destroy() });
+      this.time.delayedCall(700, () => { this.sleeping = false; });
+    });
   }
 
   private leave(): void {

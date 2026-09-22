@@ -14,6 +14,8 @@ import { gameState } from '../state/GameState';
 import { SaveSystem } from '../systems/SaveSystem';
 import { Inventory } from '../systems/InventorySystem';
 import { uiState } from '../ui/uiState';
+import { DayCycle } from '../systems/DayCycle';
+import { Energy } from '../systems/EnergySystem';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -151,14 +153,16 @@ export class WorldScene extends Phaser.Scene {
       this.player.move({ x: 0, y: 0 });
       return;
     }
-    this.player.move(this.controls.getDirection());
+    this.player.move(this.controls.getDirection(), Energy.speedFactor());
     // Position mémorisée en continu (pour la sauvegarde).
     gameState.player.x = this.player.x;
     gameState.player.y = this.player.y;
     gameState.player.facing = this.player.direction;
 
-    // Pousse des plantes d'après l'heure réelle (branché sur les journées du jeu en phase 6).
-    for (const plot of this.farm.tick()) this.farmView.refresh(plot);
+    // Horloge, énergie, pousse par nuits.
+    const cycle = DayCycle.update();
+    for (const plot of cycle.grown) this.farmView.refresh(plot);
+    if (cycle.daysPassed > 0) this.floatText(`Jour ${gameState.time.day}`, Math.floor(this.player.x / TILE_SIZE), Math.floor(this.player.y / TILE_SIZE) - 2);
 
     // Case visée = la tuile devant les pieds du joueur.
     const { tx, ty } = this.targetTile();

@@ -2,21 +2,28 @@
 // Elle porte le bouton « Sac », le panneau Sac/Options, la sauvegarde automatique.
 
 import Phaser from 'phaser';
-import { GAME_WIDTH } from '../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
 import { InventoryPanel } from '../ui/InventoryPanel';
+import { ClockWidget } from '../ui/ClockWidget';
 import { SaveSystem } from '../systems/SaveSystem';
+import { TimeSystem } from '../systems/TimeSystem';
 import { gameState } from '../state/GameState';
 
 const AUTOSAVE_EVERY_MS = 10_000;
 
 export class UIScene extends Phaser.Scene {
   private panel!: InventoryPanel;
+  private clock!: ClockWidget;
+  private nightTint!: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super({ key: 'UI', active: false });
   }
 
   create(): void {
+    // Teinte de nuit : un voile bleu nuit sur tout l'écran, sous les panneaux, dont l'opacité suit l'heure.
+    this.nightTint = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x0b1a3a, 1).setOrigin(0, 0).setDepth(100).setAlpha(0);
+    this.clock = new ClockWidget(this);
     this.panel = new InventoryPanel(this, () => this.resetGame());
 
     // Bouton « Sac » en haut à droite (souris et tactile).
@@ -38,6 +45,11 @@ export class UIScene extends Phaser.Scene {
 
     // Les scènes de jeu préviennent quand l'inventaire change (pour rafraîchir la grille si elle est ouverte).
     this.game.events.on('inventory-changed', () => { if (this.panel.isOpen) this.panel.refreshSac(); });
+  }
+
+  update(): void {
+    this.clock.refresh();
+    this.nightTint.setAlpha(TimeSystem.darkness() * 0.6);
   }
 
   /** Nouvelle partie : efface la sauvegarde, remet l'état à zéro et relance le terrain. */
