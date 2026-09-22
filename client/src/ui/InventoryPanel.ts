@@ -121,7 +121,7 @@ export class InventoryPanel {
     this.selectedLabel = this.scene.add.text(PANEL_W / 2, gridY + Math.ceil(INVENTORY_SIZE / COLS) * CELL + 6, '', FONT).setOrigin(0.5, 0);
     this.sacPage.add(this.selectedLabel);
     // Dans la maison, quand le lit est posé : le ranger dans le sac (inspiration Animal Crossing).
-    const bx = PANEL_W - 96, by = 8;
+    const bx = 8, by = 6; // à gauche du titre, loin du bouton ✕
     const r = this.scene.add.rectangle(bx, by, 88, 16, 0xd9c49a, 1).setOrigin(0, 0).setStrokeStyle(1, 0x6b4a2b).setInteractive();
     const t = this.scene.add.text(bx + 44, by + 8, 'Ranger le lit', FONT_SMALL).setOrigin(0.5);
     r.on('pointerdown', () => { this.close(); this.scene.game.events.emit('pickup-bed'); });
