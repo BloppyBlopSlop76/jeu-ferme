@@ -9,15 +9,15 @@ export interface CropDef {
   row: number;
   /** Nombre de stades de pousse (le dernier = mûr). */
   stages: number;
-  /** Durée d'un stade, en millisecondes (temps réel tant que le temps de jeu n'existe pas). */
-  stageMs: number;
+  /** Nuits nécessaires pour passer d'un stade au suivant (au moins 1 : décision d'Anthony). */
+  nightsPerStage: number;
   /** Quantité récoltée. */
   yield: number;
 }
 
 export const CROPS: Record<string, CropDef> = {
-  navet: { id: 'navet', nom: 'Navet', row: 1, stages: 4, stageMs: 20_000, yield: 1 },
-  ble: { id: 'ble', nom: 'Blé', row: 0, stages: 4, stageMs: 30_000, yield: 2 },
+  navet: { id: 'navet', nom: 'Navet', row: 1, stages: 4, nightsPerStage: 1, yield: 1 },  // mûr en 3 nuits
+  ble: { id: 'ble', nom: 'Blé', row: 0, stages: 4, nightsPerStage: 2, yield: 2 },        // mûr en 6 nuits
 };
 
 /** Numéro d'image dans plants.png pour un stade donné (0 = premier stade). */
