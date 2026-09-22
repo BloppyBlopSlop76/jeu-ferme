@@ -15,6 +15,7 @@ const H = 38;   // hauteur en tuiles
 const tilesets = [
   { name: 'grass', image: 'grass.png', imagewidth: 176, imageheight: 112, columns: 11, tilecount: 77, firstgid: 1 },
   { name: 'water', image: 'water.png', imagewidth: 64, imageheight: 16, columns: 4, tilecount: 4, firstgid: 78 },
+  { name: 'dirt', image: 'dirt.png', imagewidth: 176, imageheight: 112, columns: 11, tilecount: 77, firstgid: 82 },
 ];
 const G = (col, row) => 1 + row * 11 + col;      // gid d'une tuile de grass.png
 const WATER = 78;                                 // première image de l'eau
@@ -80,7 +81,7 @@ add({ name: 'pont', type: 'bridge', x: RIVER_X0 * TILE, y: (BRIDGE_Y1 + 1) * TIL
 
 // Arbres : quelques grands et petits, jamais sur la rivière ni sur la maison.
 const trees = [
-  [3, 12, 'big'], [14, 3, 'big'], [20, 10, 'small'], [26, 5, 'big'], [30, 14, 'small'],
+  [3, 12, 'big'], [14, 3, 'big'], [20, 16, 'small'], [26, 5, 'big'], [30, 14, 'small'],
   [5, 22, 'big'], [12, 27, 'small'], [22, 24, 'big'], [33, 28, 'big'], [45, 8, 'big'],
   [47, 20, 'small'], [46, 30, 'big'], [17, 33, 'big'], [36, 34, 'small'], [9, 34, 'small'],
   [28, 31, 'small'], [38, 4, 'small'], [2, 3, 'small'],
@@ -93,13 +94,14 @@ for (const [tx, ty, size] of trees) {
 
 const map = {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  width: W, height: H, tilewidth: TILE, tileheight: TILE, infinite: false, nextlayerid: 6, nextobjectid: id,
+  width: W, height: H, tilewidth: TILE, tileheight: TILE, infinite: false, nextlayerid: 7, nextobjectid: id,
   tilesets: tilesets.map((t) => ({ ...t, tilewidth: TILE, tileheight: TILE, margin: 0, spacing: 0 })),
   layers: [
     { id: 1, name: 'eau', type: 'tilelayer', width: W, height: H, x: 0, y: 0, opacity: 1, visible: true, data: eau },
     { id: 2, name: 'eau_libre', type: 'tilelayer', width: W, height: H, x: 0, y: 0, opacity: 1, visible: true, data: eauLibre },
     { id: 3, name: 'sol', type: 'tilelayer', width: W, height: H, x: 0, y: 0, opacity: 1, visible: true, data: sol },
     { id: 4, name: 'deco', type: 'tilelayer', width: W, height: H, x: 0, y: 0, opacity: 1, visible: true, data: deco },
+    { id: 6, name: 'champ', type: 'tilelayer', width: W, height: H, x: 0, y: 0, opacity: 1, visible: true, data: new Array(W * H).fill(0) },
     { id: 5, name: 'objets', type: 'objectgroup', draworder: 'topdown', x: 0, y: 0, opacity: 1, visible: true, objects },
   ],
 };
