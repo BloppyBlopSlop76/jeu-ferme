@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover + user-scalable=no : plein écran sur mobile, pas de zoom accidentel -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#5aa05a" />
+    <title>Jeu Ferme — prototype</title>
+    <style>
+      /* Le jeu occupe tout l'écran, sans marge ni barre de défilement */
+      html, body { margin: 0; padding: 0; height: 100%; background: #2f4f2f; overflow: hidden; }
+      #game { width: 100%; height: 100%; touch-action: none; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
