@@ -99,6 +99,7 @@ export class HouseScene extends Phaser.Scene {
 
     if (uiState.panelOpen) {
       this.player.move({ x: 0, y: 0 });
+      this.controls.actionJustPressed(); // consommé (voir MapScene)
       return;
     }
     this.player.move(this.controls.getDirection(), Energy.speedFactor());

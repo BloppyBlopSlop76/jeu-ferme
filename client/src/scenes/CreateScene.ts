@@ -99,7 +99,7 @@ export class CreateScene extends Phaser.Scene {
     this.nameInput.blur();
     // Étape suivante : l'apparence (si elle n'a jamais été choisie), sinon le jeu.
     if (gameState.character.appearance === null) this.scene.start('Appearance');
-    else this.scene.start(gameState.location === 'house' ? 'House' : 'World');
+    else this.scene.start(gameState.location === 'house' ? 'House' : gameState.location === 'village' ? 'Village' : 'World');
   }
 }
 

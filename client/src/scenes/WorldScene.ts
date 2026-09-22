@@ -1,41 +1,21 @@
-// Scène du terrain : la carte Tiled (sol, rivière, décor), la maison, les arbres, le pont,
-// le personnage, la caméra, la porte de la maison et le champ cultivable.
+// Scène du terrain : la carte de la ferme (rivière, maison, boîte d'expédition, boutique), l'agriculture et la pêche.
+// Tout ce qui est commun aux cartes (objets, personnage, passages, PNJ) est dans MapScene.
 
 import Phaser from 'phaser';
 import { TILE_SIZE } from '../config/constants';
-import { Player } from '../entities/Player';
 import { FarmView } from '../entities/FarmView';
-import { createControls } from '../systems/createControls';
-import { InputController } from '../systems/InputController';
-import { FarmSystem, ACTION_LABELS } from '../systems/FarmSystem';
+import { FarmSystem, ACTION_LABELS, currentSeed } from '../systems/FarmSystem';
 import { ITEMS } from '../data/items';
-import { Hud } from '../ui/Hud';
 import { gameState } from '../state/GameState';
 import { SaveSystem } from '../systems/SaveSystem';
-import { Inventory } from '../systems/InventorySystem';
-import { uiState } from '../ui/uiState';
-import { DayCycle } from '../systems/DayCycle';
-import { Energy } from '../systems/EnergySystem';
 import { FishingSystem } from '../systems/FishingSystem';
 import { SKILLS } from '../data/skills';
-import { currentSeed } from '../systems/FarmSystem';
+import { DayCycle } from '../systems/DayCycle';
+import { MapScene } from './MapScene';
 
-export class WorldScene extends Phaser.Scene {
-  private player!: Player;
-  private controls!: InputController;
-  private hud!: Hud;
-  private doorZone!: Phaser.GameObjects.Zone;
-  /** Cases avec lesquelles on peut interagir (boîte d'expédition, marchand). */
-  private interact = new Map<string, 'shipping' | 'shop'>();
-  private entering = false;
-  /** La porte ne s'active qu'une fois que le joueur en est sorti (évite l'aller-retour maison ↔ terrain au retour). */
-  private doorArmed = false;
-
+export class WorldScene extends MapScene {
   private farm!: FarmSystem;
   private farmView!: FarmView;
-  private cursor!: Phaser.GameObjects.Rectangle;   // surlignage de la case visée
-  private cursorLabel!: Phaser.GameObjects.Text;   // nom de l'action possible
-  private water = new Set<string>();               // cases d'eau où l'on peut pêcher
   private fishing = new FishingSystem();
   private biteMark!: Phaser.GameObjects.Text;      // le « ! » au-dessus du joueur quand ça mord
   private rod!: Phaser.GameObjects.Graphics;       // canne + fil, redessinés pendant la pêche
@@ -43,213 +23,49 @@ export class WorldScene extends Phaser.Scene {
   private fishSpot = { x: 0, y: 0 };               // centre de la case d'eau visée
 
   constructor() {
-    super('World');
+    super('World', 'ferme', 'world');
   }
 
   create(): void {
-    // Une scène Phaser est réutilisée à chaque retour : on remet les drapeaux à zéro ici, pas dans le constructeur.
-    this.entering = false;
-    this.doorArmed = false;
-
-    const map = this.make.tilemap({ key: 'ferme' });
-    const grass = map.addTilesetImage('grass', 'grass')!;
-    const water = map.addTilesetImage('water', 'water')!;
-    const dirt = map.addTilesetImage('dirt', 'dirt')!;
-
-    // Calques dans l'ordre de dessin : eau dessous, puis sol, champ, décor.
-    const eau = map.createLayer('eau', [water])!;
-    map.createLayer('eau_libre', [water]);   // sous le pont et les rives : pas de collision
-    map.createLayer('sol', [grass]);
-    const champ = map.createLayer('champ', [dirt]) as Phaser.Tilemaps.TilemapLayer;
-    map.createLayer('deco', [grass]);
-    // Toute tuile d'eau (hors pont) bloque le passage.
-    eau.setCollisionByExclusion([-1]);
-
-    const worldWidth = map.widthInPixels;
-    const worldHeight = map.heightInPixels;
-    this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
-    this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
-
-    // --- Objets de la carte ---
-    const objets = map.getObjectLayer('objets')!;
-    const obstacles = this.physics.add.staticGroup();
-    let spawn = { x: worldWidth / 2, y: worldHeight / 2 };
-    // Cases où l'on ne peut pas planter : eau et rives (tuiles), puis les objets (maison, arbres, pont, porte).
-    const blocked = new Set<string>();
-    const block = (px: number, py: number, w: number, h: number) => {
-      for (let ty = Math.floor(py / TILE_SIZE); ty < Math.ceil((py + h) / TILE_SIZE); ty++)
-        for (let tx = Math.floor(px / TILE_SIZE); tx < Math.ceil((px + w) / TILE_SIZE); tx++)
-          blocked.add(`${tx},${ty}`);
-    };
-    this.water.clear();
-    this.interact.clear();
-    for (const layerName of ['eau', 'eau_libre']) {
-      map.getLayer(layerName)!.data.forEach((row) => row.forEach((t) => {
-        if (t.index > 0) { blocked.add(`${t.x},${t.y}`); this.water.add(`${t.x},${t.y}`); }
-      }));
-    }
     this.fishing.reset();
     (window as unknown as { __fishing: unknown }).__fishing = this.fishing; // pour les tests automatiques
+    this.buildMap(gameState.character.name ? `Ferme de ${gameState.character.name}` : 'Ton terrain');
 
-    for (const obj of objets.objects) {
-      const x = obj.x ?? 0;
-      const y = obj.y ?? 0; // pour les images Tiled, y = bord BAS de l'objet
-      switch (obj.type) {
-        case 'house': {
-          const img = this.add.image(x, y, 'house').setOrigin(0, 1).setDepth(y);
-          block(x, y - img.height, img.width, img.height);
-          // Le bloc solide = les murs (moitié basse), pas le toit : on peut passer derrière.
-          const wall = this.add.zone(x + 40, y - 16, img.width, 32);
-          obstacles.add(wall);
-          break;
-        }
-        case 'tree': {
-          const size = (obj.properties as { name: string; value: string }[] | undefined)
-            ?.find((p) => p.name === 'size')?.value ?? 'big';
-          const frame = size === 'big' ? 'tree_big' : 'tree_small';
-          const w = obj.width ?? 16;
-          const img = this.add.image(x + w / 2, y, 'things', frame).setOrigin(0.5, 1).setDepth(y);
-          // Tronc solide : petite zone au pied de l'arbre.
-          const trunk = this.add.zone(img.x, y - 4, size === 'big' ? 14 : 8, 8);
-          obstacles.add(trunk);
-          block(x, y - 16, w, 16); // le pied de l'arbre
-          break;
-        }
-        case 'shop': {
-          const img = this.add.image(x, y, 'shop').setOrigin(0, 1).setDepth(y);
-          block(x, y - img.height, img.width, img.height);
-          const wall = this.add.zone(x + 40, y - 16, img.width, 32);
-          obstacles.add(wall);
-          break;
-        }
-        case 'npc': {
-          // Le marchand, devant sa boutique : il se balance doucement sur place.
-          if (!this.anims.exists('npc-idle')) this.anims.create({ key: 'npc-idle', frames: this.anims.generateFrameNumbers('npc_marchand', { start: 0, end: 1 }), frameRate: 1.5, repeat: -1 });
-          const w = obj.width ?? 16;
-          const npc = this.add.sprite(x + w / 2, y, 'npc_marchand', 0).setOrigin(0.5, 0.8).setDepth(y);
-          npc.play('npc-idle');
-          obstacles.add(this.add.zone(npc.x, y - 4, 12, 8));
-          block(x, y - 16, w, 16);
-          this.interact.set(`${Math.floor(x / TILE_SIZE)},${Math.floor((y - 1) / TILE_SIZE)}`, 'shop');
-          break;
-        }
-        case 'shipping': {
-          this.add.image(x, y, 'shipping_box').setOrigin(0, 1).setDepth(y);
-          obstacles.add(this.add.zone(x + 8, y - 8, 16, 16));
-          block(x, y - 16, 16, 16);
-          this.interact.set(`${Math.floor(x / TILE_SIZE)},${Math.floor((y - 1) / TILE_SIZE)}`, 'shipping');
-          break;
-        }
-        case 'bridge':
-          this.add.image(x, y, 'bridge').setOrigin(0, 1).setDepth(0);
-          block(x, y - 32, 48, 32);
-          break;
-        case 'door':
-          this.doorZone = this.add.zone(x + (obj.width ?? 16) / 2, y + (obj.height ?? 8) / 2, obj.width ?? 16, obj.height ?? 8);
-          this.physics.add.existing(this.doorZone, true);
-          block(x, y, obj.width ?? 16, obj.height ?? 8);
-          break;
-        case 'spawn':
-          spawn = { x, y };
-          break;
-      }
-    }
-
-    // --- Champ : règles (FarmSystem) et affichage (FarmView) ---
-    // Sol libre = dans la carte et pas dans la liste des cases bloquées.
+    // --- Champ : règles (FarmSystem) et affichage (FarmView). Sol libre = dans la carte et pas bloqué. ---
+    const champ = this.map.createLayer('champ', [this.map.getTileset('dirt')!]) as Phaser.Tilemaps.TilemapLayer;
     this.farm = new FarmSystem((tx, ty) =>
-      tx >= 0 && ty >= 0 && tx < map.width && ty < map.height && !blocked.has(`${tx},${ty}`));
+      tx >= 0 && ty >= 0 && tx < this.map.width && ty < this.map.height && !this.blocked.has(`${tx},${ty}`));
     this.farmView = new FarmView(this, champ);
-
-    // --- Joueur : à la position mémorisée (retour de la maison) ou au point de départ. ---
-    const start = gameState.location === 'world' && gameState.player.x > 0 ? gameState.player : spawn;
-    this.player = new Player(this, start.x, start.y, gameState.player.facing);
-    gameState.location = 'world';
-
-    this.physics.add.collider(this.player.sprite, eau);
-    this.physics.add.collider(this.player.sprite, obstacles);
-    this.physics.add.overlap(this.player.sprite, this.doorZone, () => this.enterHouse());
-
-    // Curseur de case visée : un carré de la taille d'une tuile + le nom de l'action.
-    this.cursor = this.add.rectangle(0, 0, TILE_SIZE, TILE_SIZE, 0xffffff, 0.15)
-      .setOrigin(0, 0).setStrokeStyle(1, 0xffffff, 0.8).setDepth(9000);
-    this.cursorLabel = this.add.text(0, 0, '', {
-      fontFamily: 'sans-serif', fontSize: '9px', color: '#ffffff', backgroundColor: '#00000088', padding: { x: 2, y: 1 },
-    }).setOrigin(0.5, 1).setDepth(9001);
 
     this.rod = this.add.graphics().setDepth(9550).setVisible(false);
     this.bobber = this.add.circle(0, 0, 2.5, 0xe0563f).setStrokeStyle(1, 0xffffff, 0.9).setDepth(9551).setVisible(false);
     this.biteMark = this.add.text(0, 0, '!', {
       fontFamily: 'sans-serif', fontSize: '16px', color: '#fff2a0', stroke: '#000000', strokeThickness: 3, fontStyle: 'bold',
     }).setOrigin(0.5, 1).setDepth(9600).setVisible(false);
-
-    this.cameras.main.startFollow(this.player.sprite, true, 0.12, 0.12);
-    this.cameras.main.setRoundPixels(true);
-    this.cameras.main.fadeIn(300);
-
-    this.controls = createControls(this);
-    this.hud = new Hud(this, gameState.character.name ? `Ferme de ${gameState.character.name}` : 'Ton terrain');
-    const onTrade = () => this.refreshHud();
-    this.game.events.on('trade', onTrade);
-    this.events.once('shutdown', () => this.game.events.off('trade', onTrade));
-
-    // Interface (sac, options) : une scène à part, toujours au-dessus.
-    if (!this.scene.isActive('UI')) this.scene.launch('UI');
-    this.scene.bringToTop('UI');
   }
 
-  update(): void {
-    if (this.entering) return;
-
-    // Panneau ouvert : le joueur reste immobile et rien ne se déclenche.
-    if (uiState.panelOpen) {
-      this.player.move({ x: 0, y: 0 });
-      return;
+  /** Pêche en cours : bouger annule ; sinon on attend la touche et on n'avance pas le reste. */
+  protected beforeMove(dir: { x: number; y: number }): boolean {
+    if (!this.fishing.isActive) return true;
+    if (dir.x !== 0 || dir.y !== 0) {
+      this.fishing.reset();
+      this.biteMark.setVisible(false);
+      this.showRod(false);
+      return true;
     }
-    const dir = this.controls.getDirection();
-    // Pêche en cours : bouger annule ; sinon on attend la touche.
-    if (this.fishing.isActive) {
-      if (dir.x !== 0 || dir.y !== 0) {
-        this.fishing.reset();
-        this.biteMark.setVisible(false);
-        this.showRod(false);
-      } else {
-        this.player.move({ x: 0, y: 0 });
-        this.updateFishing();
-        return;
-      }
-    }
-    this.player.move(dir, Energy.speedFactor());
-    if (!this.doorArmed && !this.physics.overlap(this.player.sprite, this.doorZone)) this.doorArmed = true;
-    // Position mémorisée en continu (pour la sauvegarde).
-    gameState.player.x = this.player.x;
-    gameState.player.y = this.player.y;
-    gameState.player.facing = this.player.direction;
+    this.player.move({ x: 0, y: 0 });
+    this.updateFishing();
+    return false;
+  }
 
-    // Horloge, énergie, pousse par nuits.
-    const cycle = DayCycle.update();
+  protected onDayCycle(cycle: ReturnType<typeof DayCycle.update>): void {
     for (const plot of cycle.grown) this.farmView.refresh(plot);
-    if (cycle.daysPassed > 0) this.floatText(`Jour ${gameState.time.day}`, Math.floor(this.player.x / TILE_SIZE), Math.floor(this.player.y / TILE_SIZE) - 2);
-    if (cycle.shippingPaid > 0) { this.floatText(`Expédition : +${cycle.shippingPaid} pièces`, Math.floor(this.player.x / TILE_SIZE), Math.floor(this.player.y / TILE_SIZE) - 4); SaveSystem.autosave(); }
+  }
 
-    // Case visée = la tuile devant les pieds du joueur.
-    const { tx, ty } = this.targetTile();
-    // Devant la boîte d'expédition ou le marchand : un panneau (dans la scène UI).
-    const thing = this.interact.get(`${tx},${ty}`);
-    if (thing) {
-      const label = thing === 'shop' ? 'Parler' : 'Expédier';
-      this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(true).setStrokeStyle(1, 0xfff2a0, 1);
-      this.cursorLabel.setPosition(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 2).setText(label).setVisible(true);
-      this.controls.setActionLabel(label);
-      if (this.controls.actionJustPressed()) this.game.events.emit(thing === 'shop' ? 'open-shop' : 'open-shipping');
-      return;
-    }
-    const isWater = this.water.has(`${tx},${ty}`);
-    if (isWater) {
-      // Devant l'eau : on peut pêcher.
-      this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(true).setStrokeStyle(1, 0x9ad4ff, 1);
-      this.cursorLabel.setPosition(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 2).setText('Pêcher').setVisible(true);
-      this.controls.setActionLabel('Pêcher');
+  /** Sur la case visée : pêcher devant l'eau, sinon planter / arroser / récolter. */
+  protected updateActions(tx: number, ty: number): void {
+    if (this.water.has(`${tx},${ty}`)) {
+      this.showCursor(tx, ty, 'Pêcher', 0x9ad4ff);
       if (this.controls.actionJustPressed()) {
         this.fishing.cast(Date.now());
         this.fishSpot = { x: tx * TILE_SIZE + TILE_SIZE / 2, y: ty * TILE_SIZE + TILE_SIZE / 2 };
@@ -271,12 +87,9 @@ export class WorldScene extends Phaser.Scene {
       if (result.plot) this.farmView.refresh(result.plot);
       if (result.action === 'harvest') {
         this.farmView.clear(tx, ty);
-        if (result.gained) {
-          this.floatText(result.gained.map((g) => `+${g.qty} ${ITEMS[g.item].nom}`).join('  '), tx, ty);
-        }
+        if (result.gained) this.floatText(result.gained.map((g) => `+${g.qty} ${ITEMS[g.item].nom}`).join('  '), tx, ty);
       }
       if (result.levelUp) this.levelUpText('agriculture', result.levelUp);
-      this.refreshHud();
       this.game.events.emit('inventory-changed');
       SaveSystem.autosave();
     }
@@ -315,7 +128,6 @@ export class WorldScene extends Phaser.Scene {
         if (result) {
           this.floatText(result.stored ? `+${result.qty} ${result.fish.nom}` : 'Sac plein !', Math.floor(px / TILE_SIZE), Math.floor(py / TILE_SIZE));
           if (result.levelUp) this.levelUpText('peche', result.levelUp);
-          this.refreshHud();
           this.game.events.emit('inventory-changed');
           SaveSystem.autosave();
         }
@@ -354,39 +166,4 @@ export class WorldScene extends Phaser.Scene {
     g.lineStyle(1, 0xffffff, 0.8).lineBetween(tipX, tipY, this.bobber.x, this.bobber.y - 2); // fil
   }
 
-  /** Tuile devant le joueur, selon la direction où il regarde. */
-  private targetTile(): { tx: number; ty: number } {
-    const feetX = Math.floor(this.player.x / TILE_SIZE);
-    const feetY = Math.floor((this.player.y - 2) / TILE_SIZE);
-    const d = this.player.direction;
-    return {
-      tx: feetX + (d === 'left' ? -1 : d === 'right' ? 1 : 0),
-      ty: feetY + (d === 'up' ? -1 : d === 'down' ? 1 : 0),
-    };
-  }
-
-  /** Le bandeau texte a été remplacé par la barre rapide (scène UI) : plus rien à afficher ici. */
-  private refreshHud(): void {
-    this.hud.setInfo('');
-  }
-
-  /** Petit texte qui monte et disparaît (retour visuel d'une récolte). */
-  private floatText(text: string, tx: number, ty: number): void {
-    const t = this.add.text(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 14, text, {
-      fontFamily: 'sans-serif', fontSize: '10px', color: '#fff2a0', stroke: '#000000', strokeThickness: 2,
-    }).setOrigin(0.5, 1).setDepth(9500);
-    this.tweens.add({ targets: t, y: t.y - 16, alpha: 0, duration: 900, onComplete: () => t.destroy() });
-  }
-
-  /** Entrée dans la maison : on mémorise la position devant la porte, fondu, changement de scène. */
-  private enterHouse(): void {
-    if (this.entering || !this.doorArmed) return;
-    this.entering = true;
-    // Au retour, le joueur réapparaît juste sous la porte, hors de sa zone (sinon il y rentrerait aussitôt).
-    gameState.player = { x: this.doorZone.x, y: this.doorZone.y + this.doorZone.height / 2 + 12, facing: 'down' };
-    gameState.location = 'house';
-    SaveSystem.autosave();
-    this.cameras.main.fadeOut(250);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('House'));
-  }
 }

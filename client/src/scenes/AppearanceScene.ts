@@ -121,6 +121,6 @@ export class AppearanceScene extends Phaser.Scene {
   private confirm(): void {
     gameState.character.appearance = { ...this.look };
     SaveSystem.save();
-    this.scene.start(gameState.location === 'house' ? 'House' : 'World');
+    this.scene.start(gameState.location === 'house' ? 'House' : gameState.location === 'village' ? 'Village' : 'World');
   }
 }

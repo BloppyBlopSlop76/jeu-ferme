@@ -31,7 +31,10 @@ export class BootScene extends Phaser.Scene {
     this.load.image('shipping_box', 'shipping_box.png');
     this.load.image('coin', 'coin.png');
     this.load.image('furniture', 'furniture.png');
-    this.load.spritesheet('npc_marchand', 'npc_marchand.png', { frameWidth: 48, frameHeight: 48 });
+    this.load.image('museum', 'museum.png');
+    this.load.image('fountain', 'fountain.png');
+    for (const npc of ['npc_marchand', 'npc_conservateur', 'npc_villageoise']) this.load.spritesheet(npc, `${npc}.png`, { frameWidth: 48, frameHeight: 48 });
+    this.load.tilemapTiledJSON('village', 'maps/village.json');
     this.load.spritesheet('plants', 'plants.png', { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('fish', 'fish.png', { frameWidth: 16, frameHeight: 16 });
     // Personnage en couches (création originale, générée par tools/chibi.py).
@@ -56,6 +59,6 @@ export class BootScene extends Phaser.Scene {
     // Pas encore de trait choisi (nouvelle partie, ou ancienne partie convertie) : écran de création d'abord.
     if (gameState.character.trait === null) { this.scene.start('Create'); return; }
     if (gameState.character.appearance === null) { this.scene.start('Appearance'); return; }
-    this.scene.start(gameState.location === 'house' ? 'House' : 'World');
+    this.scene.start(gameState.location === 'house' ? 'House' : gameState.location === 'village' ? 'Village' : 'World');
   }
 }
