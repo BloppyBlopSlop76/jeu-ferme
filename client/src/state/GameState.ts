@@ -63,6 +63,11 @@ export interface CharacterState {
   appearance: Appearance | null;
 }
 
+/** Ce qui est posé dans la maison (phase 9) : le lit, en coordonnées de tuiles de la pièce (case du haut). */
+export interface HouseState {
+  bed: { tx: number; ty: number } | null;
+}
+
 export interface GameState {
   /** Version du format de sauvegarde : à augmenter quand la structure change. */
   version: number;
@@ -77,6 +82,13 @@ export interface GameState {
   /** Compétences (phase 8) : clé = identifiant de compétence (data/skills.ts). */
   skills: Record<string, SkillState>;
   character: CharacterState;
+  /** Pièces (phase 9). */
+  money: number;
+  /** Objets déposés dans les boîtes d'expédition, payés le lendemain matin. */
+  shipping: ItemStack[];
+  house: HouseState;
+  /** Graine plantée par le bouton d'action (choisie dans le sac). */
+  selectedSeed: string;
 }
 
 export const INVENTORY_SIZE = 20;
@@ -88,7 +100,7 @@ export function createDefaultState(): GameState {
   const slots: (ItemStack | null)[] = new Array(INVENTORY_SIZE).fill(null);
   slots[0] = { item: 'graine_navet', qty: 10 }; // de quoi commencer
   return {
-    version: 6,
+    version: 7,
     location: 'world',
     player: { x: 0, y: 0, facing: 'down' },
     farm: {},
@@ -98,6 +110,10 @@ export function createDefaultState(): GameState {
     energy: ENERGY_MAX,
     skills: { agriculture: { xp: 0 }, peche: { xp: 0 } },
     character: { name: '', trait: null, appearance: null },
+    money: 50,
+    shipping: [],
+    house: { bed: null },
+    selectedSeed: 'graine_navet',
   };
 }
 
