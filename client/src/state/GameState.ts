@@ -4,7 +4,7 @@
 
 import type { Appearance } from '../data/appearance';
 
-export type LocationId = 'world' | 'house';
+export type LocationId = 'world' | 'house' | 'village';
 
 export interface PlayerState {
   x: number;
