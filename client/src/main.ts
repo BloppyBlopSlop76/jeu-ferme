@@ -5,6 +5,7 @@ import { GAME_WIDTH, GAME_HEIGHT } from './config/constants';
 import { BootScene } from './scenes/BootScene';
 import { WorldScene } from './scenes/WorldScene';
 import { HouseScene } from './scenes/HouseScene';
+import { UIScene } from './scenes/UIScene';
 import { gameState } from './state/GameState';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -22,7 +23,7 @@ const config: Phaser.Types.Core.GameConfig = {
     default: 'arcade',          // physique simple (vitesse, collisions rectangulaires), suffisante pour un jeu 2D vu de dessus
     arcade: { debug: false },
   },
-  scene: [BootScene, WorldScene, HouseScene],
+  scene: [BootScene, WorldScene, HouseScene, UIScene],
 };
 
 new Phaser.Game(config);
