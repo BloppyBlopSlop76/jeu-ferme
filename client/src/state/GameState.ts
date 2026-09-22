@@ -53,6 +53,12 @@ export interface SkillState {
   xp: number;
 }
 
+/** Le personnage : prénom et trait de caractère (phase 8). trait = null tant qu'il n'a pas été choisi. */
+export interface CharacterState {
+  name: string;
+  trait: string | null;
+}
+
 export interface GameState {
   /** Version du format de sauvegarde : à augmenter quand la structure change. */
   version: number;
@@ -66,6 +72,7 @@ export interface GameState {
   energy: number;
   /** Compétences (phase 8) : clé = identifiant de compétence (data/skills.ts). */
   skills: Record<string, SkillState>;
+  character: CharacterState;
 }
 
 export const INVENTORY_SIZE = 20;
@@ -77,7 +84,7 @@ export function createDefaultState(): GameState {
   const slots: (ItemStack | null)[] = new Array(INVENTORY_SIZE).fill(null);
   slots[0] = { item: 'graine_navet', qty: 10 }; // de quoi commencer
   return {
-    version: 4,
+    version: 5,
     location: 'world',
     player: { x: 0, y: 0, facing: 'down' },
     farm: {},
@@ -86,6 +93,7 @@ export function createDefaultState(): GameState {
     time: { day: 1, minute: 8 * 60, lastRealMs: 0 }, // une nouvelle partie commence à 8 h, en plein jour
     energy: ENERGY_MAX,
     skills: { agriculture: { xp: 0 }, peche: { xp: 0 } },
+    character: { name: '', trait: null },
   };
 }
 
