@@ -32,6 +32,9 @@ export class WorldScene extends Phaser.Scene {
   private water = new Set<string>();               // cases d'eau où l'on peut pêcher
   private fishing = new FishingSystem();
   private biteMark!: Phaser.GameObjects.Text;      // le « ! » au-dessus du joueur quand ça mord
+  private rod!: Phaser.GameObjects.Graphics;       // canne + fil, redessinés pendant la pêche
+  private bobber!: Phaser.GameObjects.Arc;         // le bouchon qui flotte
+  private fishSpot = { x: 0, y: 0 };               // centre de la case d'eau visée
 
   constructor() {
     super('World');
@@ -141,6 +144,8 @@ export class WorldScene extends Phaser.Scene {
       fontFamily: 'sans-serif', fontSize: '9px', color: '#ffffff', backgroundColor: '#00000088', padding: { x: 2, y: 1 },
     }).setOrigin(0.5, 1).setDepth(9001);
 
+    this.rod = this.add.graphics().setDepth(9550).setVisible(false);
+    this.bobber = this.add.circle(0, 0, 2.5, 0xe0563f).setStrokeStyle(1, 0xffffff, 0.9).setDepth(9551).setVisible(false);
     this.biteMark = this.add.text(0, 0, '!', {
       fontFamily: 'sans-serif', fontSize: '16px', color: '#fff2a0', stroke: '#000000', strokeThickness: 3, fontStyle: 'bold',
     }).setOrigin(0.5, 1).setDepth(9600).setVisible(false);
@@ -172,6 +177,7 @@ export class WorldScene extends Phaser.Scene {
       if (dir.x !== 0 || dir.y !== 0) {
         this.fishing.reset();
         this.biteMark.setVisible(false);
+        this.showRod(false);
       } else {
         this.player.move({ x: 0, y: 0 });
         this.updateFishing();
@@ -197,7 +203,11 @@ export class WorldScene extends Phaser.Scene {
       this.cursor.setPosition(tx * TILE_SIZE, ty * TILE_SIZE).setVisible(true).setStrokeStyle(1, 0x9ad4ff, 1);
       this.cursorLabel.setPosition(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE - 2).setText('Pêcher').setVisible(true);
       this.controls.setActionLabel('Pêcher');
-      if (this.controls.actionJustPressed()) this.fishing.cast(Date.now());
+      if (this.controls.actionJustPressed()) {
+        this.fishing.cast(Date.now());
+        this.fishSpot = { x: tx * TILE_SIZE + TILE_SIZE / 2, y: ty * TILE_SIZE + TILE_SIZE / 2 };
+        this.showRod(true);
+      }
       return;
     }
     const action = this.farm.getAction(tx, ty);
@@ -235,12 +245,18 @@ export class WorldScene extends Phaser.Scene {
       this.floatText('Raté, il est parti…', Math.floor(px / TILE_SIZE), Math.floor(py / TILE_SIZE));
     }
     const phase = this.fishing.phase;
-    this.cursorLabel.setVisible(false);
-    this.controls.setActionLabel(phase === 'bite' ? 'Ferrer !' : 'Attendre…');
+    const stateLabel = phase === 'bite' ? 'Ferrer !' : 'Attendre…';
+    // Sur ordinateur il n'y a pas de bouton rond : l'état s'affiche au-dessus de la case d'eau.
+    this.cursorLabel.setPosition(this.fishSpot.x, this.fishSpot.y + 20).setText(stateLabel).setVisible(true); // sous le bouchon, pour ne pas cacher la canne
+    this.cursor.setVisible(false);
+    this.controls.setActionLabel(stateLabel);
+    this.drawRod(phase === 'bite');
+    if (phase === 'idle') { this.showRod(false); return; } // raté : la ligne est déjà remontée
     if (this.controls.actionJustPressed()) {
       if (phase === 'bite') {
         const result = this.fishing.reel();
         this.biteMark.setVisible(false);
+        this.showRod(false);
         if (result) {
           this.floatText(result.stored ? `+1 ${result.fish.nom}` : 'Sac plein !', Math.floor(px / TILE_SIZE), Math.floor(py / TILE_SIZE));
           this.game.events.emit('inventory-changed');
@@ -249,9 +265,36 @@ export class WorldScene extends Phaser.Scene {
       } else {
         // Appuyer trop tôt effraie le poisson.
         this.fishing.reset();
+        this.showRod(false);
         this.floatText('Trop tôt !', Math.floor(px / TILE_SIZE), Math.floor(py / TILE_SIZE));
       }
     }
+  }
+
+  private showRod(visible: boolean): void {
+    this.rod.setVisible(visible);
+    this.bobber.setVisible(visible);
+    if (!visible) this.rod.clear();
+  }
+
+  /** Dessine la canne (un bâton depuis la main), le fil jusqu'au bouchon, et fait flotter le bouchon. */
+  private drawRod(biting: boolean): void {
+    const t = this.time.now / 1000;
+    const d = this.player.direction;
+    // Main du personnage : légèrement décalée selon la direction.
+    const handX = this.player.x + (d === 'left' ? -5 : d === 'right' ? 5 : 3);
+    const handY = this.player.y - 14;
+    // Bout de la canne : vers la case d'eau, en hauteur.
+    const dx = this.fishSpot.x - handX, dy = this.fishSpot.y - handY;
+    const len = Math.hypot(dx, dy) || 1;
+    const tipX = handX + (dx / len) * 14, tipY = handY + (dy / len) * 14 - 10;
+    // Bouchon : flotte doucement, plonge quand ça mord.
+    const bob = biting ? 3 + Math.sin(t * 30) * 2 : Math.sin(t * 3) * 1;
+    this.bobber.setPosition(this.fishSpot.x, this.fishSpot.y + bob);
+    const g = this.rod;
+    g.clear();
+    g.lineStyle(2, 0x8b5a3c, 1).lineBetween(handX, handY, tipX, tipY);      // canne
+    g.lineStyle(1, 0xffffff, 0.8).lineBetween(tipX, tipY, this.bobber.x, this.bobber.y - 2); // fil
   }
 
   /** Tuile devant le joueur, selon la direction où il regarde. */
