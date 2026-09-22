@@ -29,6 +29,7 @@ export class InventoryPanel {
   private commandesPage!: Phaser.GameObjects.Container;
   private tabTalents!: Phaser.GameObjects.Rectangle;
   private talentsPage!: Phaser.GameObjects.Container;
+  private traitLabel!: Phaser.GameObjects.Text;
   private talentRows: Record<string, { level: Phaser.GameObjects.Text; bar: Phaser.GameObjects.Rectangle; xp: Phaser.GameObjects.Text; next: Phaser.GameObjects.Text }> = {};
   private cells: { icon: Phaser.GameObjects.Image; qty: Phaser.GameObjects.Text }[] = [];
   private selectedLabel!: Phaser.GameObjects.Text;
@@ -113,7 +114,9 @@ export class InventoryPanel {
 
   private buildTalents(): void {
     const p = this.talentsPage;
-    let y = 34;
+    this.traitLabel = this.scene.add.text(30, 30, '', { ...FONT_SMALL, wordWrap: { width: PANEL_W - 60 } });
+    p.add(this.traitLabel);
+    let y = 54;
     for (const id of Object.keys(SKILLS) as SkillId[]) {
       const def = SKILLS[id];
       const name = this.scene.add.text(30, y, def.nom, { ...FONT, fontStyle: 'bold' });
@@ -125,21 +128,25 @@ export class InventoryPanel {
       const next = this.scene.add.text(30, y + 25, '', { ...FONT_SMALL, color: '#6b5a48' });
       p.add([name, level, barBg, bar, xp, next]);
       this.talentRows[id] = { level, bar, xp, next };
-      y += 52;
+      y += 50;
     }
-    const note = this.scene.add.text(PANEL_W / 2, y + 2,
+    const note = this.scene.add.text(PANEL_W / 2, y - 6,
       'Planter, arroser, récolter et pêcher font progresser tes talents.', { ...FONT_SMALL, color: '#6b5a48' }).setOrigin(0.5, 0);
     p.add(note);
   }
 
   private refreshTalents(): void {
+    const trait = Skills.trait();
+    const name = gameState.character.name || 'Toi';
+    this.traitLabel.setText(trait ? `${name} — trait : ${trait.nom} (${trait.texte})` : `${name} — aucun trait`);
     for (const id of Object.keys(SKILLS) as SkillId[]) {
       const row = this.talentRows[id];
       const prog = Skills.progress(id);
       row.level.setText(`Niveau ${prog.level}${prog.level >= MAX_LEVEL ? ' (max)' : ''}`);
       const fraction = prog.to === null ? 1 : (prog.xp - prog.from) / (prog.to - prog.from);
       row.bar.width = Math.round((PANEL_W - 62) * Math.min(1, Math.max(0, fraction)));
-      row.xp.setText(prog.to === null ? `${prog.xp} XP` : `${prog.xp} / ${prog.to} XP`);
+      const xp = Math.floor(prog.xp);
+      row.xp.setText(prog.to === null ? `${xp} XP` : `${xp} / ${prog.to} XP`);
       const nextPerk = Skills.nextPerk(id);
       row.next.setText(nextPerk ? `Niveau ${nextPerk.level} : ${nextPerk.texte}` : 'Tous les bonus sont débloqués');
     }
