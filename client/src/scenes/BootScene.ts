@@ -23,6 +23,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image('bridge', 'bridge.png');
     this.load.image('things', 'things.png');
     this.load.image('walls', 'walls.png');
+    this.load.image('dirt', 'dirt.png');
+    this.load.spritesheet('plants', 'plants.png', { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('character', 'character.png', { frameWidth: 48, frameHeight: 48 });
     this.load.tilemapTiledJSON('ferme', 'maps/ferme.json');
   }
