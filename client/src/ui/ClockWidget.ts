@@ -12,6 +12,8 @@ export class ClockWidget {
   private lastLabel = '';
   private lastNight: boolean | null = null;
   private lastEnergy = -1;
+  private moneyText: Phaser.GameObjects.Text;
+  private lastMoney = -1;
 
   constructor(scene: Phaser.Scene, x = 6, y = 6) {
     const bg = scene.add.graphics().setDepth(15000);
@@ -28,10 +30,19 @@ export class ClockWidget {
     this.energyBar = scene.add.graphics().setDepth(15001);
     this.energyBar.setPosition(x, y + 27);
 
+    // Pièces (phase 9) : une petite pièce et le montant, sous la barre d'énergie.
+    scene.add.image(x + 8, y + 42, 'coin').setScale(0.75).setDepth(15001);
+    this.moneyText = scene.add.text(x + 17, y + 42, '', { fontFamily: 'sans-serif', fontSize: '9px', color: '#fff4d6', stroke: '#2b2118', strokeThickness: 3 })
+      .setOrigin(0, 0.5).setDepth(15001);
+
     this.refresh(true);
   }
 
   refresh(force = false): void {
+    if (force || gameState.money !== this.lastMoney) {
+      this.moneyText.setText(String(gameState.money));
+      this.lastMoney = gameState.money;
+    }
     const label = `J${gameState.time.day}  ${TimeSystem.label()}`;
     if (force || label !== this.lastLabel) {
       this.text.setText(label);

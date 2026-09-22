@@ -37,6 +37,7 @@ export class InventoryPanel {
   private message!: Phaser.GameObjects.Text;
   private confirmReset = false;
   private resetLabel!: Phaser.GameObjects.Text;
+  private bedButton: Phaser.GameObjects.GameObject[] = [];
 
   constructor(private scene: Phaser.Scene, private onReset: () => void, private onAppearance: () => void) {
     const x = (GAME_WIDTH - PANEL_W) / 2;
@@ -103,13 +104,29 @@ export class InventoryPanel {
       // Toucher une case affiche le nom de l'objet sous la grille.
       bg.on('pointerdown', () => {
         const slot = gameState.inventory.slots[i];
-        this.selectedLabel.setText(slot ? `${ITEMS[slot.item].nom} ×${slot.qty}` : '');
+        if (!slot) { this.selectedLabel.setText(''); return; }
+        const def = ITEMS[slot.item];
+        // Toucher une graine la choisit pour planter (phase 9).
+        if (def.kind === 'seed') {
+          gameState.selectedSeed = slot.item;
+          this.selectedLabel.setText(`${def.nom} ×${slot.qty} — graine choisie pour planter`);
+          this.scene.game.events.emit('trade');
+        } else {
+          this.selectedLabel.setText(`${def.nom} ×${slot.qty}`);
+        }
       });
       this.sacPage.add([bg, icon, qty]);
       this.cells.push({ icon, qty });
     }
     this.selectedLabel = this.scene.add.text(PANEL_W / 2, gridY + Math.ceil(INVENTORY_SIZE / COLS) * CELL + 6, '', FONT).setOrigin(0.5, 0);
     this.sacPage.add(this.selectedLabel);
+    // Dans la maison, quand le lit est posé : le ranger dans le sac (inspiration Animal Crossing).
+    const bx = PANEL_W - 96, by = 8;
+    const r = this.scene.add.rectangle(bx, by, 88, 16, 0xd9c49a, 1).setOrigin(0, 0).setStrokeStyle(1, 0x6b4a2b).setInteractive();
+    const t = this.scene.add.text(bx + 44, by + 8, 'Ranger le lit', FONT_SMALL).setOrigin(0.5);
+    r.on('pointerdown', () => { this.close(); this.scene.game.events.emit('pickup-bed'); });
+    this.sacPage.add([r, t]);
+    this.bedButton = [r, t];
   }
 
   private buildTalents(): void {
@@ -192,14 +209,16 @@ export class InventoryPanel {
     const lines = isTouch
       ? [
           ['Joystick (bas gauche)', 'se déplacer'],
-          ['Bouton rond (bas droite)', 'action : planter, arroser, récolter, pêcher, dormir'],
+          ['Bouton rond (bas droite)', 'action : planter, arroser, récolter, pêcher, parler, expédier, dormir'],
+          ['Barre rapide (haut droite)', 'toucher une graine pour la choisir'],
           ['Bouton Sac (haut droite)', 'ouvrir / fermer ce menu'],
           ['Marcher sur la porte', 'entrer dans la maison'],
           ['Marcher sur le paillasson', 'sortir de la maison'],
         ]
       : [
           ['Flèches ou Z Q S D', 'se déplacer'],
-          ['E ou Espace', 'action : planter, arroser, récolter, pêcher, dormir'],
+          ['E ou Espace', 'action : planter, arroser, récolter, pêcher, parler, expédier, dormir'],
+          ['1 à 5', 'choisir une case de la barre rapide (graine)'],
           ['I', 'ouvrir / fermer ce menu'],
           ['Échap', 'fermer ce menu'],
           ['Marcher sur la porte', 'entrer dans la maison'],
@@ -208,9 +227,9 @@ export class InventoryPanel {
     let y = 34;
     for (const [key, what] of lines) {
       const k = this.scene.add.text(30, y, key, { ...FONT, fontStyle: 'bold' });
-      const w = this.scene.add.text(168, y, what, FONT);
+      const w = this.scene.add.text(150, y, what, { ...FONT_SMALL, wordWrap: { width: 130 } });
       this.commandesPage.add([k, w]);
-      y += 20;
+      y += 19;
     }
   }
 
@@ -233,6 +252,8 @@ export class InventoryPanel {
   }
 
   refreshSac(): void {
+    const bedPlaced = gameState.location === 'house' && gameState.house.bed !== null;
+    this.bedButton.forEach((o) => (o as Phaser.GameObjects.Rectangle).setVisible(bedPlaced));
     gameState.inventory.slots.forEach((slot, i) => {
       const c = this.cells[i];
       if (!slot) {
