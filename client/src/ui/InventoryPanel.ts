@@ -15,7 +15,7 @@ const CELL = 34;
 const FONT = { fontFamily: 'sans-serif', fontSize: '10px', color: '#2b2118' } as const;
 const FONT_SMALL = { fontFamily: 'sans-serif', fontSize: '9px', color: '#2b2118' } as const;
 
-type Tab = 'sac' | 'options';
+type Tab = 'sac' | 'options' | 'commandes';
 
 export class InventoryPanel {
   private root: Phaser.GameObjects.Container;
@@ -23,6 +23,8 @@ export class InventoryPanel {
   private optionsPage: Phaser.GameObjects.Container;
   private tabSac!: Phaser.GameObjects.Rectangle;
   private tabOptions!: Phaser.GameObjects.Rectangle;
+  private tabCommandes!: Phaser.GameObjects.Rectangle;
+  private commandesPage!: Phaser.GameObjects.Container;
   private cells: { icon: Phaser.GameObjects.Image; qty: Phaser.GameObjects.Text }[] = [];
   private selectedLabel!: Phaser.GameObjects.Text;
   private autosaveLabel!: Phaser.GameObjects.Text;
@@ -43,14 +45,17 @@ export class InventoryPanel {
     // Onglets.
     this.tabSac = this.makeTab(8, -12, 'Sac', () => this.showTab('sac'));
     this.tabOptions = this.makeTab(70, -12, 'Options', () => this.showTab('options'));
+    this.tabCommandes = this.makeTab(132, -12, 'Commandes', () => this.showTab('commandes'));
     // Bouton fermer.
     this.makeButton(PANEL_W - 30, 6, 24, 16, '✕', () => this.close());
 
     this.sacPage = scene.add.container(0, 0);
     this.optionsPage = scene.add.container(0, 0).setVisible(false);
-    this.root.add([this.sacPage, this.optionsPage]);
+    this.commandesPage = scene.add.container(0, 0).setVisible(false);
+    this.root.add([this.sacPage, this.optionsPage, this.commandesPage]);
     this.buildSac();
     this.buildOptions();
+    this.buildCommandes();
 
     this.message = scene.add.text(PANEL_W / 2, PANEL_H - 12, '', { ...FONT, color: '#3d6b2f' }).setOrigin(0.5);
     this.root.add(this.message);
@@ -59,8 +64,9 @@ export class InventoryPanel {
   // ---------- Construction ----------
 
   private makeTab(x: number, y: number, label: string, onClick: () => void): Phaser.GameObjects.Rectangle {
-    const r = this.scene.add.rectangle(x, y, 56, 16, 0xd9c49a, 1).setOrigin(0, 0).setStrokeStyle(1, 0x6b4a2b).setInteractive();
-    const t = this.scene.add.text(x + 28, y + 8, label, FONT).setOrigin(0.5);
+    const w = label.length > 7 ? 72 : 56;
+    const r = this.scene.add.rectangle(x, y, w, 16, 0xd9c49a, 1).setOrigin(0, 0).setStrokeStyle(1, 0x6b4a2b).setInteractive();
+    const t = this.scene.add.text(x + w / 2, y + 8, label, FONT).setOrigin(0.5);
     r.on('pointerdown', onClick);
     this.root.add([r, t]);
     return r;
@@ -127,17 +133,46 @@ export class InventoryPanel {
     p.add(note);
   }
 
+  private buildCommandes(): void {
+    const isTouch = this.scene.sys.game.device.input.touch;
+    const lines = isTouch
+      ? [
+          ['Joystick (bas gauche)', 'se déplacer'],
+          ['Bouton rond (bas droite)', 'action : planter, arroser, récolter, dormir'],
+          ['Bouton Sac (haut droite)', 'ouvrir / fermer ce menu'],
+          ['Marcher sur la porte', 'entrer dans la maison'],
+          ['Marcher sur le paillasson', 'sortir de la maison'],
+        ]
+      : [
+          ['Flèches ou Z Q S D', 'se déplacer'],
+          ['E ou Espace', 'action : planter, arroser, récolter, dormir'],
+          ['I', 'ouvrir / fermer ce menu'],
+          ['Échap', 'fermer ce menu'],
+          ['Marcher sur la porte', 'entrer dans la maison'],
+          ['Marcher sur le paillasson', 'sortir de la maison'],
+        ];
+    let y = 34;
+    for (const [key, what] of lines) {
+      const k = this.scene.add.text(30, y, key, { ...FONT, fontStyle: 'bold' });
+      const w = this.scene.add.text(168, y, what, FONT);
+      this.commandesPage.add([k, w]);
+      y += 20;
+    }
+  }
+
   // ---------- Affichage ----------
 
   private showTab(tab: Tab): void {
     this.sacPage.setVisible(tab === 'sac');
     this.optionsPage.setVisible(tab === 'options');
+    this.commandesPage.setVisible(tab === 'commandes');
     this.tabSac.setFillStyle(tab === 'sac' ? 0xf3e4c4 : 0xd9c49a);
     this.tabOptions.setFillStyle(tab === 'options' ? 0xf3e4c4 : 0xd9c49a);
+    this.tabCommandes.setFillStyle(tab === 'commandes' ? 0xf3e4c4 : 0xd9c49a);
     this.confirmReset = false;
     this.resetLabel?.setText('Nouvelle partie');
     if (tab === 'sac') this.refreshSac();
-    else this.refreshOptions();
+    else if (tab === 'options') this.refreshOptions();
   }
 
   refreshSac(): void {
