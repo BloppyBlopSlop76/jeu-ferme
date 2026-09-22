@@ -18,10 +18,11 @@ export interface PlotState {
   crop: string | null;
   /** Stade de pousse courant (0 = graine, dernier = mûr). */
   stage: number;
-  /** Arrosée pour le stade en cours ? La pousse n'avance que si c'est vrai. */
+  /** Arrosée ? La pousse ne démarre qu'une fois arrosée. */
   watered: boolean;
-  /** Temps accumulé vers le prochain stade, en ms. */
-  progress: number;
+  /** Heure de l'arrosage (ms depuis 1970, Date.now()), ou null. La pousse se calcule à partir du temps réel écoulé,
+   *  pour continuer même si le jeu est en pause (écran du téléphone éteint, onglet en arrière-plan). */
+  wateredAt: number | null;
 }
 
 export interface GameState {
