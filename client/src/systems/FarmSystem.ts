@@ -5,6 +5,7 @@
 import { CROPS } from '../data/crops';
 import { gameState, plotKey, type PlotState } from '../state/GameState';
 import { Inventory } from './InventorySystem';
+import { Energy, ENERGY_COST } from './EnergySystem';
 
 // Boucle voulue par Anthony : planter → arroser → attendre → récolter. Pas d'étape « bêcher ».
 export type FarmAction = 'plant' | 'water' | 'harvest';
@@ -64,19 +65,21 @@ export class FarmSystem {
     switch (action) {
       case 'plant': {
         if (!Inventory.remove(DEFAULT_SEED, 1)) return null;
-        const plot: PlotState = { tx, ty, crop: CROPS.navet.id, stage: 0, watered: false, wateredAt: null };
+        const plot: PlotState = { tx, ty, crop: CROPS.navet.id, stage: 0, watered: false, nights: 0 };
+        Energy.spend(ENERGY_COST.plant);
         gameState.farm[key] = plot;
         return { action, plot };
       }
       case 'water': {
         const plot = gameState.farm[key];
         plot.watered = true;
-        plot.wateredAt = Date.now();
+        Energy.spend(ENERGY_COST.water);
         return { action, plot };
       }
       case 'harvest': {
         const plot = gameState.farm[key];
         const crop = CROPS[plot.crop!];
+        Energy.spend(ENERGY_COST.harvest);
         Inventory.add(crop.id, crop.yield);
         const seedsLeft = Inventory.add(DEFAULT_SEED, SEEDS_PER_HARVEST); // sac plein : graines perdues, tant pis
         delete gameState.farm[key]; // la terre redevient de l'herbe
@@ -87,17 +90,25 @@ export class FarmSystem {
     }
   }
 
-  /** Fait avancer la pousse d'après le temps réel écoulé depuis l'arrosage. Renvoie les cases changées. */
-  tick(now: number = Date.now()): PlotState[] {
+  /**
+   * Pousse par nuits (décision d'Anthony : au moins une nuit par stade). Pour chaque nuit passée,
+   * une plante arrosée avance ; quand elle a assez de nuits, elle change de stade.
+   * Fonction statique : appelée par DayCycle même quand aucune scène de terrain n'est affichée.
+   */
+  static growNights(nights: number): PlotState[] {
     const changed: PlotState[] = [];
     for (const plot of Object.values(gameState.farm)) {
-      if (!plot.crop || !plot.watered || plot.wateredAt === null) continue;
+      if (!plot.crop || !plot.watered) continue;
       const crop = CROPS[plot.crop];
-      const newStage = Math.min(crop.stages - 1, Math.floor((now - plot.wateredAt) / crop.stageMs));
-      if (newStage > plot.stage) {
-        plot.stage = newStage;
-        changed.push(plot);
+      if (plot.stage >= crop.stages - 1) continue;
+      plot.nights += nights;
+      let moved = false;
+      while (plot.nights >= crop.nightsPerStage && plot.stage < crop.stages - 1) {
+        plot.nights -= crop.nightsPerStage;
+        plot.stage += 1;
+        moved = true;
       }
+      if (moved) changed.push(plot);
     }
     return changed;
   }
