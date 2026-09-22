@@ -5,6 +5,7 @@ import { GAME_WIDTH, GAME_HEIGHT } from './config/constants';
 import { BootScene } from './scenes/BootScene';
 import { WorldScene } from './scenes/WorldScene';
 import { HouseScene } from './scenes/HouseScene';
+import { gameState } from './state/GameState';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,            // WebGL si disponible, sinon Canvas
@@ -25,3 +26,6 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 new Phaser.Game(config);
+
+// Accès à l'état depuis la console du navigateur (débogage et tests automatiques). Aucun effet sur le jeu.
+(window as unknown as { __gameState: unknown }).__gameState = gameState;
