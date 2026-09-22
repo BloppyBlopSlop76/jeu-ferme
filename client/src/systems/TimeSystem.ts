@@ -63,8 +63,8 @@ export const TimeSystem = {
     const h = gameState.time.minute / 60;
     const lerp = (a: number, b: number, t: number) => a + (b - a) * Math.min(1, Math.max(0, t));
     if (h < 5) return 1;
-    if (h < 6) return lerp(1, 0.8, h - 5);        // fin de nuit
-    if (h < 7.5) return lerp(0.8, 0, (h - 6) / 1.5); // aube
+    if (h < 6) return lerp(1, 0.45, h - 5);        // fin de nuit
+    if (h < 7) return lerp(0.45, 0, h - 6);        // aube : au réveil (6 h) il fait déjà presque jour
     if (h < 18) return 0;                         // jour
     if (h < 20) return lerp(0, 0.55, (h - 18) / 2); // crépuscule
     if (h < 22) return lerp(0.55, 1, (h - 20) / 2); // soirée
