@@ -47,10 +47,10 @@ export class Player {
     this.sprite.play(`idle-${facing}`);
   }
 
-  /** Applique une direction (composantes entre -1 et 1). Appelé à chaque image. */
-  move(dir: { x: number; y: number }): void {
+  /** Applique une direction (composantes entre -1 et 1) et un facteur de vitesse (fatigue). Appelé à chaque image. */
+  move(dir: { x: number; y: number }, speedFactor = 1): void {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    body.setVelocity(dir.x * PLAYER_SPEED, dir.y * PLAYER_SPEED);
+    body.setVelocity(dir.x * PLAYER_SPEED * speedFactor, dir.y * PLAYER_SPEED * speedFactor);
 
     if (dir.x !== 0 || dir.y !== 0) {
       // La direction dominante décide de l'animation.
