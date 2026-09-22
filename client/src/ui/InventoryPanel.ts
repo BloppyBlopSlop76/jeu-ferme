@@ -38,7 +38,7 @@ export class InventoryPanel {
   private confirmReset = false;
   private resetLabel!: Phaser.GameObjects.Text;
 
-  constructor(private scene: Phaser.Scene, private onReset: () => void) {
+  constructor(private scene: Phaser.Scene, private onReset: () => void, private onAppearance: () => void) {
     const x = (GAME_WIDTH - PANEL_W) / 2;
     const y = (GAME_HEIGHT - PANEL_H) / 2;
     this.root = scene.add.container(x, y).setDepth(20000).setVisible(false);
@@ -165,6 +165,11 @@ export class InventoryPanel {
       SaveSystem.save(); // le réglage lui-même est mémorisé
     }, p);
     y += 32;
+    this.makeButton(30, y, 240, 22, 'Changer d\'apparence', () => {
+      this.close();
+      this.onAppearance();
+    }, p);
+    y += 32;
     this.resetLabel = this.makeButton(30, y, 240, 22, 'Nouvelle partie', () => {
       if (!this.confirmReset) {
         this.confirmReset = true;
@@ -177,7 +182,7 @@ export class InventoryPanel {
       this.onReset();
     }, p);
     y += 32;
-    const note = this.scene.add.text(PANEL_W / 2, y + 4,
+    const note = this.scene.add.text(PANEL_W / 2, y + 2,
       'La sauvegarde est gardée dans ce navigateur, sur cet appareil.', { ...FONT_SMALL, color: '#6b5a48' }).setOrigin(0.5, 0);
     p.add(note);
   }
