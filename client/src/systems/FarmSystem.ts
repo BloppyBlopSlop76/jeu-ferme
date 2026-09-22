@@ -102,13 +102,12 @@ export class FarmSystem {
       const crop = CROPS[plot.crop];
       if (plot.stage >= crop.stages - 1) continue;
       plot.nights += nights;
-      let moved = false;
-      while (plot.nights >= crop.nightsPerStage && plot.stage < crop.stages - 1) {
-        plot.nights -= crop.nightsPerStage;
-        plot.stage += 1;
-        moved = true;
+      // Le stade suit la proportion de nuits accomplies : 2 nuits pour 4 stades → stade 1 puis mûr.
+      const newStage = Math.min(crop.stages - 1, Math.floor((plot.nights / crop.growthNights) * (crop.stages - 1)));
+      if (newStage > plot.stage) {
+        plot.stage = newStage;
+        changed.push(plot);
       }
-      if (moved) changed.push(plot);
     }
     return changed;
   }

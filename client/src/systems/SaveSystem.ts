@@ -6,6 +6,27 @@ import { gameState, createDefaultState, type GameState } from '../state/GameStat
 
 const KEY = 'jeu-ferme.save';
 
+/**
+ * Convertit une sauvegarde d'une ancienne version vers la version courante, étape par étape.
+ * Règle (Anthony, 22/09) : on ne jette jamais une partie ; chaque changement de structure a sa conversion.
+ * Renvoie null seulement si la sauvegarde est illisible.
+ */
+function migrate(saved: Partial<GameState> & { version?: number }): Partial<GameState> | null {
+  if (typeof saved !== 'object' || saved === null) return null;
+  let v = saved.version ?? 1;
+  const s = saved as Record<string, unknown>;
+  if (v === 1) {
+    // v1 → v2 : arrivée de l'horloge et de l'énergie (valeurs par défaut), plantes : plus de « wateredAt ».
+    const farm = (s.farm ?? {}) as Record<string, Record<string, unknown>>;
+    for (const plot of Object.values(farm)) { delete plot.wateredAt; delete plot.progress; plot.nights = 0; }
+    v = 2;
+  }
+  // v2 → v3 : nuits de pousse comptées en total (pas par stade) — même champ `nights`, rien à convertir.
+  if (v === 2) v = 3;
+  s.version = v;
+  return s as Partial<GameState>;
+}
+
 export const SaveSystem = {
   /** Écrit l'état courant. Renvoie false si le navigateur refuse (mode privé, espace plein…). */
   save(): boolean {
@@ -22,8 +43,8 @@ export const SaveSystem = {
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return false;
-      const saved = JSON.parse(raw) as Partial<GameState>;
-      if (saved.version !== gameState.version) return false; // ancien format : on repart de zéro
+      const saved = migrate(JSON.parse(raw) as Partial<GameState> & { version?: number });
+      if (!saved) return false;
       // On complète les champs manquants avec les valeurs par défaut (robuste aux ajouts futurs).
       const fresh = createDefaultState();
       Object.assign(gameState, fresh, saved, {
