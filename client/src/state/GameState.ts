@@ -48,6 +48,11 @@ export interface TimeState {
   lastRealMs: number;
 }
 
+/** Progression d'une compétence : seule l'XP est stockée, le niveau s'en déduit (SkillSystem). */
+export interface SkillState {
+  xp: number;
+}
+
 export interface GameState {
   /** Version du format de sauvegarde : à augmenter quand la structure change. */
   version: number;
@@ -59,6 +64,8 @@ export interface GameState {
   time: TimeState;
   /** Énergie, de 0 à ENERGY_MAX. Jamais bloquante : à 0 on marche plus lentement, c'est tout. */
   energy: number;
+  /** Compétences (phase 8) : clé = identifiant de compétence (data/skills.ts). */
+  skills: Record<string, SkillState>;
 }
 
 export const INVENTORY_SIZE = 20;
@@ -70,7 +77,7 @@ export function createDefaultState(): GameState {
   const slots: (ItemStack | null)[] = new Array(INVENTORY_SIZE).fill(null);
   slots[0] = { item: 'graine_navet', qty: 10 }; // de quoi commencer
   return {
-    version: 3,
+    version: 4,
     location: 'world',
     player: { x: 0, y: 0, facing: 'down' },
     farm: {},
@@ -78,6 +85,7 @@ export function createDefaultState(): GameState {
     settings: { autosave: true },
     time: { day: 1, minute: 8 * 60, lastRealMs: 0 }, // une nouvelle partie commence à 8 h, en plein jour
     energy: ENERGY_MAX,
+    skills: { agriculture: { xp: 0 }, peche: { xp: 0 } },
   };
 }
 
