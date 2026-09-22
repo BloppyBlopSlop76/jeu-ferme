@@ -22,6 +22,8 @@ export class HouseScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.leaving = false; // la scène est réutilisée à chaque visite
+
     // La pièce est centrée dans l'écran ; la caméra ne bouge pas.
     const left = Math.floor((GAME_WIDTH - ROOM_W) / 2);
     const top = Math.floor((GAME_HEIGHT - ROOM_H) / 2);

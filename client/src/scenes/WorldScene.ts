@@ -20,6 +20,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Une scène Phaser est réutilisée à chaque retour : on remet les drapeaux à zéro ici, pas dans le constructeur.
+    this.entering = false;
+
     const map = this.make.tilemap({ key: 'ferme' });
     const grass = map.addTilesetImage('grass', 'grass')!;
     const water = map.addTilesetImage('water', 'water')!;
